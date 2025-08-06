@@ -1,12 +1,10 @@
 .next
 .husky
 .gitignore
-
 public
 node_modules
 dist
 build
 coverage
-
 LICENSE
 README.md

@@ -14,9 +14,8 @@ const eslintConfig = [
   {
     ignores: [
       '.next/**',
+      '.husky/**',
       'public/**',
-      'next.config.js',
-      'postcss.config.js',
       'node_modules/**',
     ],
   },
@@ -26,7 +25,7 @@ const eslintConfig = [
   ...tsEslint.configs.recommended,
   pluginReact.configs.flat.recommended,
   ...pluginTailwind.configs['flat/recommended'],
-  pluginUnicorn.configs.recommended,
+  pluginUnicorn.configs['flat/recommended'],
   ...compat.config({
     extends: ['next'],
     settings: {
