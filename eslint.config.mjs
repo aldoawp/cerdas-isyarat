@@ -1,9 +1,9 @@
 import globals from 'globals';
 import pluginJs from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import tsEslint from 'typescript-eslint';
 import pluginReact from 'eslint-plugin-react';
-import tailwind from 'eslint-plugin-tailwindcss';
-import eslintPluginUnicorn from 'eslint-plugin-unicorn';
+import pluginTailwind from 'eslint-plugin-tailwindcss';
+import pluginUnicorn from 'eslint-plugin-unicorn';
 import { FlatCompat } from '@eslint/eslintrc';
 
 const compat = new FlatCompat({
@@ -23,10 +23,10 @@ const eslintConfig = [
   { files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}'] },
   { languageOptions: { globals: { ...globals.browser, ...globals.node } } },
   pluginJs.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tsEslint.configs.recommended,
   pluginReact.configs.flat.recommended,
-  ...tailwind.configs['flat/recommended'],
-  eslintPluginUnicorn.configs.recommended,
+  ...pluginTailwind.configs['flat/recommended'],
+  pluginUnicorn.configs.recommended,
   ...compat.config({
     extends: ['next'],
     settings: {

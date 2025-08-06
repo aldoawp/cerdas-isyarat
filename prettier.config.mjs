@@ -1,5 +1,3 @@
-import { plugin } from 'typescript-eslint';
-
 const prettierConfig = {
   semi: true,
   trailingComma: 'es5',
