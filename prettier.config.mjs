@@ -1,0 +1,14 @@
+import { plugin } from 'typescript-eslint';
+
+const prettierConfig = {
+  semi: true,
+  trailingComma: 'es5',
+  singleQuote: true,
+  tabWidth: 2,
+  useTabs: false,
+  bracketSpacing: true,
+  arrowParens: 'avoid',
+  plugins: ['prettier-plugin-tailwindcss'],
+};
+
+export default prettierConfig;
