@@ -12,12 +12,7 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   {
-    ignores: [
-      '.next/**',
-      '.husky/**',
-      'public/**',
-      'node_modules/**',
-    ],
+    ignores: ['.next/**', '.husky/**', 'public/**', 'node_modules/**'],
   },
   { files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}'] },
   { languageOptions: { globals: { ...globals.browser, ...globals.node } } },
