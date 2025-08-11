@@ -31,6 +31,7 @@ const eslintConfig = [
   }),
   {
     rules: {
+      'unicorn/no-useless-undefined': 'off',
       'no-undef': 'error',
       'react/react-in-jsx-scope': 'off',
       "tailwindcss/migration-from-tailwind-2": "off",

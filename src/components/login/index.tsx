@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-// 1. Import useRouter untuk navigasi
 import { useRouter } from 'next/navigation';
+// 1. Impor komponen Image dari next/image
+import Image from 'next/image';
 
 // --- TIPE DATA & INTERFACE ---
 interface User {
@@ -84,7 +85,6 @@ const EyeClosedIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 // --- KOMPONEN UTAMA HALAMAN LOGIN ---
 export default function LoginPage() {
-  // 2. Inisialisasi router
   const router = useRouter();
   const textStrokeStyle = {
     WebkitTextStroke: '6px #CE7310',
@@ -117,10 +117,7 @@ export default function LoginPage() {
     );
 
     if (foundUser && foundUser.password === password) {
-      // SIMPAN PENGGUNA YANG LOGIN KE LOCALSTORAGE
       localStorage.setItem('loggedInUser', JSON.stringify(foundUser));
-
-      // 3. Arahkan ke halaman onboarding setelah login berhasil
       router.push('/onboarding');
     } else {
       setError('Username atau password salah, coba lagi ya!');
@@ -138,8 +135,8 @@ export default function LoginPage() {
   return (
     <>
       <style>{`
-                @keyframes shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(2px); } 30%, 50%, 70% { transform: translateX(-4px); } 40%, 60% { transform: translateX(4px); } }
-                .shake { animation: shake 0.5s ease-in-out; }
+              @keyframes shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(2px); } 30%, 50%, 70% { transform: translateX(-4px); } 40%, 60% { transform: translateX(4px); } }
+              .shake { animation: shake 0.5s ease-in-out; }
             `}</style>
 
       <div className="relative grid min-h-screen place-items-center overflow-hidden bg-mobile-bg bg-cover bg-center p-4 font-sans md:bg-desktop-bg">
@@ -209,7 +206,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* 4. Ganti <a> dengan <Link> */}
               <Link
                 href="/lupa-password"
                 className="mt-2 block text-right text-sm text-[#B68326] hover:underline"
@@ -249,11 +245,15 @@ export default function LoginPage() {
           </div>
         </main>
 
+        {/* 2. Ganti <img> dengan komponen <Image> */}
         <div className="pointer-events-none absolute bottom-0 right-0 z-20 w-36 md:w-52 lg:w-64 xl:w-72">
-          <img
+          <Image
             src="/images/mascot-cropped-1-tp 1.png"
             alt="Mascot Cerdas Isyarat"
+            width={300}
+            height={350}
             className="h-auto w-full"
+            priority
           />
         </div>
       </div>

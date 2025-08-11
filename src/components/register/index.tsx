@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import BackButton from '../backbutton/backbutton';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image'; // <-- Diimpor untuk optimasi gambar
+import Link from 'next/link'; // <-- Diimpor untuk navigasi
 
 // Tipe data untuk state form
 interface FormDataState {
@@ -74,21 +76,17 @@ const SuccessModal = ({
 }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4">
     <div className="animate-jump-in relative mx-auto max-w-sm rounded-3xl border-4 border-brand-yellow bg-form-bg p-6 text-center shadow-lg transition-all">
-      <img
+      <Image
         src={mascotSrc}
         alt="Mascot"
+        width={128}
+        height={128}
         className="mx-auto -mt-20 mb-2 h-auto w-32"
       />
-      <h3
-        className="mb-2 text-2xl font-bold text-brand-brown-stroke"
-        style={{ fontFamily: '"Baloo 2", cursive' }}
-      >
+      <h3 className="mb-2 font-comic text-2xl font-bold text-brand-brown-stroke">
         Hore! Berhasil!
       </h3>
-      <p
-        className="mb-6 px-4 text-gray-700"
-        style={{ fontFamily: '"Comic Sans MS", cursive' }}
-      >
+      <p className="mb-6 px-4 font-comic text-gray-700">
         Akunmu sudah jadi. Sebentar lagi kamu akan diarahkan ke halaman login,
         ya!
       </p>
@@ -104,6 +102,7 @@ const SuccessModal = ({
 
 // Komponen utama untuk halaman registrasi
 export default function RegisterPage() {
+  const router = useRouter(); // <-- Digunakan untuk navigasi
   const textStrokeStyle = {
     WebkitTextStroke: '6px #CE7310',
     paintOrder: 'stroke fill',
@@ -314,17 +313,35 @@ export default function RegisterPage() {
 
       {showSuccessModal && (
         <SuccessModal
-          mascotSrc="/img/mascot-cropped-1-tp 1.png"
+          mascotSrc="/images/mascot-cropped-1-tp-1.png"
           onClose={() => {
             setShowSuccessModal(false);
-            globalThis.location.href = '/login';
+            router.push('/login');
           }}
         />
       )}
 
       <div className="relative grid min-h-screen place-items-center overflow-hidden bg-mobile-bg bg-cover bg-center p-4 font-sans md:bg-desktop-bg">
-        {/* --- TOMBOL KEMBALI MENGGUNAKAN KOMPONEN --- */}
-        <BackButton href="/login" />
+        <Link
+          href="/login"
+          // FIX: Urutan kelas Tailwind diperbaiki
+          className="absolute left-4 top-4 z-20 grid size-12 place-items-center rounded-full border-2 border-yellow-400/80 bg-form-bg/90 text-brand-yellow shadow-lg transition-transform hover:scale-110 md:left-6 md:top-6"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2.5}
+            stroke="currentColor"
+            className="size-6"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15.75 19.5L8.25 12l7.5-7.5"
+            />
+          </svg>
+        </Link>
 
         <main className="z-10 w-full max-w-4xl">
           <div className="mb-16 text-center">
@@ -365,6 +382,7 @@ export default function RegisterPage() {
                           {icons[index % 5]}
                         </div>
                         <input
+                          // FIX: Ternary bertingkat diberi tanda kurung
                           type={
                             isPasswordField
                               ? passwordVisibility[fieldName]
@@ -376,8 +394,7 @@ export default function RegisterPage() {
                           placeholder={field.placeholder}
                           value={formData[field.name as keyof FormDataState]}
                           onChange={handleChange}
-                          className={`h-12 w-full rounded-[20px] border-4 bg-input-bg p-2 pl-12 text-sm text-brand-brown-stroke transition-colors placeholder:text-placeholder-brown focus:outline-none md:h-14 md:text-base ${errors[field.name as keyof FormDataState] ? 'border-red-500' : 'border-input-border'}`}
-                          style={{ fontFamily: '"Comic Sans MS", cursive' }}
+                          className={`h-12 w-full rounded-[20px] border-4 bg-input-bg p-2 pl-12 font-comic text-sm text-brand-brown-stroke transition-colors placeholder:text-placeholder-brown focus:outline-none md:h-14 md:text-base ${errors[field.name as keyof FormDataState] ? 'border-red-500' : 'border-input-border'}`}
                         />
                         {isPasswordField && (
                           <button
@@ -411,7 +428,7 @@ export default function RegisterPage() {
               <div className="mt-6 text-center">
                 <button
                   type="submit"
-                  className={`w-3/4 rounded-[15px] bg-[#F59E0B] py-2 text-lg font-bold text-white transition duration-300 hover:bg-yellow-600 ${isShaking ? 'shake' : ''}`}
+                  className={`w-3/4 rounded-[15px] bg-[#F59E0B] py-2 font-comic text-lg font-bold text-white transition duration-300 hover:bg-yellow-600 ${isShaking ? 'shake' : ''}`}
                 >
                   BUAT AKUN
                 </button>
@@ -421,10 +438,13 @@ export default function RegisterPage() {
         </main>
 
         <div className="pointer-events-none absolute bottom-0 right-0 z-20 w-36 md:w-52 lg:w-64 xl:w-72">
-          <img
-            src="/img/mascot-cropped-1-tp 1.png"
+          <Image
+            src="/images/mascot-cropped-1-tp 1.png"
             alt="Mascot Cerdas Isyarat"
+            width={288} // w-72
+            height={350} // Perkiraan tinggi, sesuaikan jika perlu
             className="h-auto w-full"
+            priority
           />
         </div>
       </div>

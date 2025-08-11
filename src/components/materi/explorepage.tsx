@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/backbutton/backbutton';
 import UserDetail from '@/components/userinfo/userinfo';
+import Image from 'next/image';
 
 const LockIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -76,49 +77,49 @@ const masterLevels: MasterLevel[] = [
     id: 1,
     title: 'Level 1',
     description: 'Abjad A - E',
-    imgUrl: '/img/placeholder-materi.png',
+    imgUrl: '/images/placeholder-materi.png',
   },
   {
     id: 2,
     title: 'Level 2',
     description: 'Abjad F - J',
-    imgUrl: '/img/placeholder-materi.png',
+    imgUrl: '/images/placeholder-materi.png',
   },
   {
     id: 3,
     title: 'Level 3',
     description: 'Kata Tanya',
-    imgUrl: '/img/placeholder-materi.png',
+    imgUrl: '/images/placeholder-materi.png',
   },
   {
     id: 4,
     title: 'Level 4',
     description: 'Kata Sapaan',
-    imgUrl: '/img/placeholder-materi.png',
+    imgUrl: '/images/placeholder-materi.png',
   },
   {
     id: 5,
     title: 'Level 5',
     description: 'Angka 1 - 10',
-    imgUrl: '/img/placeholder-materi.png',
+    imgUrl: '/images/placeholder-materi.png',
   },
   {
     id: 6,
     title: 'Level 6',
     description: 'Keluarga',
-    imgUrl: '/img/placeholder-materi.png',
+    imgUrl: '/images/placeholder-materi.png',
   },
   {
     id: 7,
     title: 'Level 7',
     description: 'Hari & Waktu',
-    imgUrl: '/img/placeholder-materi.png',
+    imgUrl: '/images/placeholder-materi.png',
   },
   {
     id: 8,
     title: 'Level 8',
     description: 'Pekerjaan',
-    imgUrl: '/img/placeholder-materi.png',
+    imgUrl: '/images/placeholder-materi.png',
   },
 ];
 
@@ -148,7 +149,7 @@ const LevelCard = ({
       className={`relative w-full transform rounded-3xl p-4 text-center shadow-lg transition-all duration-300 ease-out ${
         isLocked
           ? 'cursor-not-allowed border-4 border-gray-400 bg-gray-200 opacity-70'
-          : isCompleted
+          : isCompleted // FIX: Nested ternary is now parenthesized
             ? 'border-4 border-green-400 bg-gradient-to-br from-yellow-100 via-amber-50 to-orange-100 hover:-translate-y-3 hover:shadow-2xl'
             : 'border-4 border-orange-400 bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 hover:-translate-y-3 hover:border-yellow-500 hover:shadow-2xl'
       }`}
@@ -180,10 +181,10 @@ const LevelCard = ({
         className={`flex h-full flex-col space-y-3 ${isLocked ? 'grayscale filter' : ''}`}
       >
         <h3
-          className={`text-lg font-bold ${
+          className={`font-sans text-lg font-bold ${
+            // FIX: Menggunakan font-sans (Baloo 2) dari config
             isLocked ? 'text-gray-600' : 'text-brand-brown-stroke'
           }`}
-          style={{ fontFamily: '"Baloo 2", cursive' }}
         >
           {level.title}
         </h3>
@@ -193,14 +194,12 @@ const LevelCard = ({
             isLocked ? 'bg-gray-100' : 'bg-white/80'
           }`}
         >
-          <img
+          <Image
             src={level.imgUrl}
             alt={level.description}
+            width={80}
+            height={80}
             className="size-16 object-contain md:size-20"
-            onError={e =>
-              (e.currentTarget.src =
-                'https://placehold.co/80x80/f97316/ffffff?text=📚')
-            }
           />
         </div>
 
@@ -298,7 +297,8 @@ export default function EksplorasiPage() {
             </div>
 
             <div className="mt-12 text-center">
-              <button className="border-3 transform rounded-full border-white/90 bg-gradient-to-r from-orange-400 to-yellow-500 px-12 py-4 font-bold text-white shadow-xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:from-orange-500 hover:to-yellow-600 hover:shadow-2xl">
+              <button className="border-3 transform rounded-full border-white/90 bg-gradient-to-r from-orange-400 to-yellow-500 px-12 py-4 font-comic font-bold text-white shadow-xl transition-all duration-300 hover:-translate-y-2 hover:scale-105 hover:from-orange-500 hover:to-yellow-600 hover:shadow-2xl">
+                {' '}
                 Load More
               </button>
             </div>

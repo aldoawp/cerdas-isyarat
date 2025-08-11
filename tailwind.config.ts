@@ -29,8 +29,10 @@ const config: Config = {
         'icon-teal-bg': '#26A69A',
       },
       fontFamily: {
-        // Mengganti font default dengan Baloo 2
-        sans: ['"Baloo 2"', 'cursive'],
+        // Font utama untuk teks biasa, sudah bagus dan mudah dibaca
+        sans: ['"Baloo 2"', 'sans-serif'],
+
+        comic: ['"Comic Neue"', '"Comic Sans MS"', 'cursive'],
       },
     },
   },

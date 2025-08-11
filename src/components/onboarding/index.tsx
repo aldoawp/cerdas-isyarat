@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import UserDetail from '@/components/userinfo/userinfo';
+import Image from 'next/image';
 
 // --- KOMPONEN IKON BARU YANG LEBIH SERU ---
 
@@ -180,11 +181,11 @@ export default function OnboardingPage() {
   return (
     <>
       <style>{`
-                @keyframes fade-in-up {
-                    0% { opacity: 0; transform: translateY(20px); }
-                    100% { opacity: 1; transform: translateY(0); }
-                }
-                .animate-fade-in-up { animation: fade-in-up 0.6s both; }
+              @keyframes fade-in-up {
+                  0% { opacity: 0; transform: translateY(20px); }
+                  100% { opacity: 1; transform: translateY(0); }
+              }
+              .animate-fade-in-up { animation: fade-in-up 0.6s both; }
             `}</style>
 
       <div className="relative min-h-screen overflow-hidden bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
@@ -254,10 +255,13 @@ export default function OnboardingPage() {
 
         {/* MASCOT - Fixed position */}
         <div className="pointer-events-none absolute bottom-0 right-0 z-20 w-32 md:w-48 lg:w-56 xl:w-64">
-          <img
-            src="/img/mascot2.png"
+          <Image
+            src="/images/mascot2.png"
             alt="Mascot Cerdas Isyarat"
+            width={256}
+            height={325}
             className="h-auto w-full"
+            priority
           />
         </div>
       </div>
