@@ -1,5 +1,6 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
+import type { Config } from 'tailwindcss';
+
+const config: Config = {
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -16,10 +17,10 @@ module.exports = {
         'brand-yellow': '#FED630',
         'brand-brown-stroke': '#CE7310',
         'subtitle-cream': '#FFF9DC',
-        'form-bg': '#FDF6D5', // Latar belakang form utama
-        'input-bg': '#FFF9DC', // Latar belakang input field
+        'form-bg': '#FDF6D5',
+        'input-bg': '#FFF9DC',
         'placeholder-brown': '#A1887F',
-        'input-border': '#F9E0A4', // <--- Warna baru ditambahkan di sini
+        'input-border': '#F9E0A4',
 
         // Warna untuk Ikon
         'icon-orange-bg': '#F9A825',
@@ -35,3 +36,5 @@ module.exports = {
   },
   plugins: [],
 };
+
+export default config;

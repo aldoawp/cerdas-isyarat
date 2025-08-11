@@ -33,6 +33,7 @@ const eslintConfig = [
     rules: {
       'no-undef': 'error',
       'react/react-in-jsx-scope': 'off',
+      "tailwindcss/migration-from-tailwind-2": "off",
       'tailwindcss/no-custom-classname': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
