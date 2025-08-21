@@ -21,3 +21,31 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+::-webkit-scrollbar {
+  width: 12px; /* Lebar scrollbar */
+  height: 12px; /* Tinggi scrollbar (untuk scroll horizontal) */
+}
+
+::-webkit-scrollbar-track {
+  background: #fdf6d5; /* Warna 'form-bg' dari tema Anda */
+  border-radius: 10px; /* Membuat track melengkung */
+  border: 2px solid #f9e0a4; /* Warna 'input-border' untuk outline */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #fed630; /* Warna 'brand-yellow' utama */
+  border-radius: 10px; /* Membuat thumb (pegangan) melengkung */
+  border: 3px solid #ce7310; /* Warna 'brand-brown-stroke' untuk efek komik */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #f9a825; /* Warna 'icon-orange-bg' saat di-hover */
+}
+
+/* Untuk Firefox */
+* {
+  scrollbar-width: thin; /* Opsi: 'auto', 'thin', 'none' */
+  scrollbar-color: #fed630 #fdf6d5; /* Warna thumb dan track */
+}
+
