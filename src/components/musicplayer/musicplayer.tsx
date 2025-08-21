@@ -81,7 +81,6 @@ const MusicPlayer = () => {
         <div className="relative">
           <button
             onClick={togglePlayPause}
-            // FIX: Gaya disamakan dengan BackButton
             className={`group relative flex size-14 items-center justify-center overflow-hidden rounded-full border-4 border-input-border bg-amber-500 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 ${hasUserInteracted ? '' : 'animate-pulse ring-2 ring-white/50'}`}
             aria-label={isPlaying ? 'Pause music' : 'Play music'}
           >
@@ -89,6 +88,7 @@ const MusicPlayer = () => {
               <div className="absolute inset-0 animate-pulse rounded-full bg-gradient-to-r from-orange-500/20 to-amber-500/20" />
             )}
             <div className="relative z-10">
+              {/* [DIPERBAIKI] Tanda kurung ditambahkan di sini */}
               {isPlaying ? (
                 <SpeakerWaveIcon className="size-7 text-white" />
               ) : hasUserInteracted ? (
@@ -102,7 +102,6 @@ const MusicPlayer = () => {
         <div
           className={`overflow-hidden transition-all duration-500 ease-out ${controlsVisible ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'}`}
         >
-          {/* FIX: Gaya kontrol volume disesuaikan */}
           <div className="flex items-center space-x-3 rounded-full border-2 border-input-border bg-amber-500/90 p-2 shadow-xl backdrop-blur-sm">
             <button
               onClick={toggleMute}

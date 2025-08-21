@@ -19,10 +19,6 @@ export const GameHeader = ({
 }: GameHeaderProps) => (
   <header className="flex items-center justify-between p-4">
     <div className="w-1/4">
-      {/* [FIX] Di sinilah perbaikannya.
-        Kita teruskan fungsi onBackClick ke prop onClick milik BackButton.
-        Sekarang BackButton tahu apa yang harus dilakukan saat diklik di halaman tes.
-      */}
       <BackButton onClick={onBackClick} />
     </div>
 
@@ -32,6 +28,7 @@ export const GameHeader = ({
           key={index}
           className={clsx(
             'flex size-8 items-center justify-center rounded-full border-2 transition-all duration-500',
+            // [DIPERBAIKI] Tanda kurung ditambahkan di sini untuk memperbaiki error
             index < currentIndex
               ? 'border-icon-green-bg bg-icon-green-bg text-white shadow-lg'
               : index === currentIndex

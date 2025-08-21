@@ -73,7 +73,6 @@ const SuccessModal = ({
   mascotSrc: string;
 }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4">
-    {/* FIX: Menggunakan 'animate-jump-in' dari config Tailwind */}
     <div className="relative mx-auto max-w-sm animate-jump-in rounded-3xl border-4 border-brand-yellow bg-form-bg p-6 text-center shadow-lg transition-all">
       <Image
         src={mascotSrc}
@@ -103,7 +102,6 @@ const SuccessModal = ({
 export default function RegisterPage() {
   const router = useRouter();
 
-  // State tidak berubah
   const [formData, setFormData] = useState<FormDataState>({
     fullName: '',
     age: '',
@@ -119,7 +117,6 @@ export default function RegisterPage() {
     confirmPassword: false,
   });
 
-  // Logika validasi, submit, dan lainnya tidak berubah
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
@@ -195,7 +192,6 @@ export default function RegisterPage() {
     }
   }, [isShaking]);
 
-  // Data untuk field dan ikon tidak berubah
   const formFields: {
     name: keyof FormDataState;
     placeholder: string;
@@ -219,11 +215,12 @@ export default function RegisterPage() {
       viewBox="0 0 20 20"
       fill="currentColor"
     >
+      {' '}
       <path
         fillRule="evenodd"
         d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
         clipRule="evenodd"
-      />
+      />{' '}
     </svg>,
     <svg
       key="umur"
@@ -232,11 +229,12 @@ export default function RegisterPage() {
       viewBox="0 0 20 20"
       fill="currentColor"
     >
+      {' '}
       <path
         fillRule="evenodd"
         d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V12a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z"
         clipRule="evenodd"
-      />
+      />{' '}
     </svg>,
     <svg
       key="user"
@@ -247,11 +245,12 @@ export default function RegisterPage() {
       stroke="currentColor"
       strokeWidth="2"
     >
+      {' '}
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"
-      />
+      />{' '}
     </svg>,
     <svg
       key="pass"
@@ -260,11 +259,12 @@ export default function RegisterPage() {
       viewBox="0 0 20 20"
       fill="currentColor"
     >
+      {' '}
       <path
         fillRule="evenodd"
         d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
         clipRule="evenodd"
-      />
+      />{' '}
     </svg>,
     <svg
       key="konfirm"
@@ -273,11 +273,12 @@ export default function RegisterPage() {
       viewBox="0 0 20 20"
       fill="currentColor"
     >
+      {' '}
       <path
         fillRule="evenodd"
         d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
         clipRule="evenodd"
-      />
+      />{' '}
     </svg>,
   ];
   const iconBgs = [
@@ -290,7 +291,6 @@ export default function RegisterPage() {
 
   return (
     <>
-      {/* FIX: Tag <style> dihapus karena animasi sudah ada di config Tailwind */}
       {showSuccessModal && (
         <SuccessModal
           mascotSrc="/images/mascot-cropped-1-tp 1.png"
@@ -314,17 +314,17 @@ export default function RegisterPage() {
             stroke="currentColor"
             className="size-6"
           >
+            {' '}
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
               d="M15.75 19.5L8.25 12l7.5-7.5"
-            />
+            />{' '}
           </svg>
         </Link>
 
         <main className="z-10 w-full max-w-4xl">
           <div className="mb-16 text-center">
-            {/* FIX: Menghapus style inline dan menggunakan class dari Tailwind */}
             <h1 className="text-5xl font-bold text-brand-yellow drop-shadow-lg text-stroke-md md:text-7xl">
               CerdasIsyarat
             </h1>
@@ -355,6 +355,7 @@ export default function RegisterPage() {
                           {icons[index % 5]}
                         </div>
                         <input
+                          // [DIPERBAIKI] Tanda kurung ditambahkan di sini
                           type={
                             isPasswordField
                               ? passwordVisibility[fieldName]

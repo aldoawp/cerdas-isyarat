@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/backbutton/backbutton';
 
-// --- Tipe Data & Data Awal (Tidak ada perubahan) ---
+// --- Tipe Data & Data Awal ---
 interface Movement {
   id: number;
   name: string;
@@ -73,7 +73,7 @@ const mockMovements: Movement[] = [
 ];
 const TOTAL_TIME_SECONDS = 20 * 60;
 
-// --- Fungsi Utilitas (Tidak ada perubahan) ---
+// --- Fungsi Utilitas ---
 const shuffleArray = <T,>(array: T[]): T[] => {
   const newArray = [...array];
   for (let i = newArray.length - 1; i > 0; i--) {
@@ -83,7 +83,7 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
-// --- Ikon (Tidak ada perubahan) ---
+// --- Ikon ---
 const StarIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -115,7 +115,7 @@ const ClockIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-// --- Komponen UI Lokal (Tidak ada perubahan signifikan, hanya ?? undefined) ---
+// --- Komponen UI Lokal ---
 const ScoreDisplay = ({
   score,
   feedbackPoints,
@@ -266,7 +266,7 @@ const FunModal = ({
   icon: string;
 }) => {
   if (!isOpen) return <></>;
-  /* [DIPERBAIKI] null -> <></> */ return (
+  return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       {' '}
       <div className="relative w-full max-w-md animate-jump-in">
@@ -301,7 +301,7 @@ const ConfirmationModal = ({
   onCancel: () => void;
 }) => {
   if (!isOpen) return <></>;
-  /* [DIPERBAIKI] null -> <></> */ return (
+  return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       {' '}
       <div className="relative w-full max-w-sm animate-jump-in">
@@ -400,7 +400,6 @@ const ActionButton = ({
 // --- KOMPONEN UTAMA HALAMAN TES ---
 export default function TebakGerakanTestPage() {
   const router = useRouter();
-  // [DIPERBAIKI] null -> undefined
   const videoRef = useRef<HTMLVideoElement | undefined>(undefined);
   const streamRef = useRef<MediaStream | undefined>(undefined);
   const [isCameraReady, setIsCameraReady] = useState(false);
@@ -414,7 +413,6 @@ export default function TebakGerakanTestPage() {
   const [questionState, setQuestionState] = useState<'guessing' | 'feedback'>(
     'guessing'
   );
-  // [DIPERBAIKI] null -> undefined
   const [feedbackPoints, setFeedbackPoints] = useState<
     { points: number; key: number } | undefined
   >(undefined);
@@ -430,7 +428,6 @@ export default function TebakGerakanTestPage() {
     setShowDisconnectedModal(true);
     if (streamRef.current) {
       for (const track of streamRef.current.getTracks()) track.stop();
-      // [DIPERBAIKI] null -> undefined
       streamRef.current = undefined;
     }
   }, []);
@@ -487,7 +484,6 @@ export default function TebakGerakanTestPage() {
     return () => {
       if (streamRef.current) {
         for (const track of streamRef.current.getTracks()) track.stop();
-        // [DIPERBAIKI] null -> undefined
         streamRef.current = undefined;
       }
     };
@@ -536,7 +532,6 @@ export default function TebakGerakanTestPage() {
     setScore(prev => prev + randomPoints);
     setFeedbackPoints({ points: randomPoints, key: Date.now() });
     setQuestionState('feedback');
-    // [DIPERBAIKI] null -> undefined
     setTimeout(() => setFeedbackPoints(undefined), 2000);
   };
 
@@ -593,7 +588,6 @@ export default function TebakGerakanTestPage() {
             <BackButton onClick={() => setIsExitModalOpen(true)} />
           </div>
           <div className="flex flex-1 justify-center">
-            {/* [DIPERBAIKI] ?? null -> ?? undefined (atau hapus ??) */}
             <ScoreDisplay score={score} feedbackPoints={feedbackPoints} />
           </div>
           <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4">
