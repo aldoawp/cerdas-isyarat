@@ -1,7 +1,77 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image'; // [DIPERBAIKI] Impor komponen Image dari Next.js
+import clsx from 'clsx';
+
+// --- Tipe Data ---
+type LevelProgress = { progress: number; lastIndex: number };
+type UserProgress = {
+  completedLevelIds: number[];
+  learningProgress: { [levelId: number]: LevelProgress };
+};
+type UserData = { fullName: string; lives?: number; avatar?: string };
+
+// --- LOGIKA HELPER ---
+const USER_KEY = 'loggedInUser';
+const PROGRESS_KEY = 'userBisindoProgress';
+
+const getProgress = (): UserProgress => {
+  if (globalThis.window === undefined)
+    return { completedLevelIds: [], learningProgress: {} };
+  try {
+    const saved = localStorage.getItem(PROGRESS_KEY);
+    return saved
+      ? JSON.parse(saved)
+      : { completedLevelIds: [], learningProgress: {} };
+  } catch {
+    return { completedLevelIds: [], learningProgress: {} };
+  }
+};
+
+// [DIPERBAIKI] Menggunakan 'undefined' sebagai ganti 'null'
+export const getUserData = (): UserData | undefined => {
+  if (globalThis.window === undefined) return undefined;
+  try {
+    const data = localStorage.getItem(USER_KEY);
+    return data ? JSON.parse(data) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+export const decreaseLife = () => {
+  const userData = getUserData();
+  if (!userData) return;
+  const currentLives = userData.lives ?? 3;
+  if (currentLives > 0) {
+    userData.lives = currentLives - 1;
+    localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    globalThis.dispatchEvent(new Event('userStateChange'));
+  }
+};
+
+export const refillLives = () => {
+  const userData = getUserData();
+  if (!userData) return;
+  if ((userData.lives ?? 3) < 3) {
+    userData.lives = 3;
+    localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    globalThis.dispatchEvent(new Event('userStateChange'));
+    // [DIPERBAIKI] Menghapus console.log
+  }
+};
+
+export const completeLevel = (levelId: number) => {
+  if (globalThis.window === undefined) return;
+  const progress = getProgress();
+  if (!progress.completedLevelIds.includes(levelId)) {
+    progress.completedLevelIds.push(levelId);
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+    globalThis.dispatchEvent(new Event('userStateChange'));
+  }
+};
 
 // --- DATA DUMMY & KONFIGURASI ---
 const avatars = [
@@ -12,19 +82,18 @@ const avatars = [
   'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRBG5EunaflZSZEb88XZFumJtFUryDiT56wrw&s',
 ];
 
-// --- DEFINISI TIPE UNTUK PROPS ---
-// Menghilangkan 'any' dengan mendefinisikan struktur data yang jelas
+// --- DEFINISI TIPE PROPS ---
 type UserInfoProps = {
   fullName: string;
   level: number;
   xp: number;
   lives: number;
-  cooldownEnd: number | undefined;
-  timeLeft: string;
   avatar: string;
   onAvatarClick: () => void;
   onLogoutClick: () => void;
 };
+type DisplayMode = 'card' | 'sidebar' | 'dropdown';
+type UserDetailProps = { mode?: DisplayMode; className?: string };
 
 // --- KOMPONEN IKON ---
 const HeartIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -37,7 +106,6 @@ const HeartIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
   </svg>
 );
-
 const LogoutIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -54,7 +122,6 @@ const LogoutIcon = (props: React.SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
-
 const MenuIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -71,7 +138,6 @@ const MenuIcon = (props: React.SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
-
 const CloseIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -88,8 +154,24 @@ const CloseIcon = (props: React.SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
+const ChevronDownIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={2}
+    stroke="currentColor"
+    {...props}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="m19.5 8.25-7.5 7.5-7.5-7.5"
+    />
+  </svg>
+);
 
-// --- KOMPONEN MODAL AVATAR ---
+// --- KOMPONEN MODAL ---
 const AvatarModal = ({
   isOpen,
   onClose,
@@ -99,12 +181,7 @@ const AvatarModal = ({
   onClose: () => void;
   onSelect: (avatar: string) => void;
 }) => {
-  if (!isOpen) return;
-  const titleStrokeStyle = {
-    WebkitTextStroke: '4px #CE7310',
-    paintOrder: 'stroke fill',
-  };
-
+  if (!isOpen) return undefined;
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -114,10 +191,7 @@ const AvatarModal = ({
         className="w-full max-w-md rounded-2xl border-4 border-yellow-300 bg-form-bg p-6"
         onClick={e => e.stopPropagation()}
       >
-        <h3
-          className="mb-6 text-center text-4xl font-bold text-brand-yellow drop-shadow-lg"
-          style={titleStrokeStyle}
-        >
+        <h3 className="mb-6 text-center text-4xl font-bold text-brand-yellow drop-shadow-lg text-stroke-base">
           Pilih Avatarmu!
         </h3>
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
@@ -125,12 +199,13 @@ const AvatarModal = ({
             <button
               key={index}
               onClick={() => onSelect(avatar)}
-              className="rounded-full bg-input-bg p-2 transition hover:scale-110 hover:bg-yellow-400"
+              className="relative aspect-square rounded-full bg-input-bg p-2 transition hover:scale-110 hover:bg-yellow-400"
             >
-              <img
+              <Image
                 src={avatar}
                 alt={`Avatar ${index + 1}`}
-                className="aspect-square w-full rounded-full object-cover"
+                fill
+                className="rounded-full object-cover"
               />
             </button>
           ))}
@@ -139,8 +214,6 @@ const AvatarModal = ({
     </div>
   );
 };
-
-// --- KOMPONEN KONFIRMASI LOGOUT ---
 const LogoutModal = ({
   isOpen,
   onClose,
@@ -150,12 +223,7 @@ const LogoutModal = ({
   onClose: () => void;
   onConfirm: () => void;
 }) => {
-  if (!isOpen) return;
-  const titleStrokeStyle = {
-    WebkitTextStroke: '3px #CE7310',
-    paintOrder: 'stroke fill',
-  };
-
+  if (!isOpen) return undefined;
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -165,30 +233,22 @@ const LogoutModal = ({
         className="w-full max-w-sm rounded-2xl border-4 border-yellow-300 bg-form-bg p-6"
         onClick={e => e.stopPropagation()}
       >
-        <h3
-          className="mb-4 text-center text-3xl font-bold text-brand-yellow drop-shadow-lg"
-          style={titleStrokeStyle}
-        >
+        <h3 className="mb-4 text-center text-3xl font-bold text-brand-yellow drop-shadow-lg text-stroke">
           Yakin mau logout?
         </h3>
-        <p
-          className="mb-6 text-center text-lg font-bold text-subtitle-cream drop-shadow-lg"
-          style={{ WebkitTextStroke: '2px #CE7310', paintOrder: 'stroke fill' }}
-        >
+        <p className="mb-6 text-center text-lg font-bold text-subtitle-cream drop-shadow-lg text-stroke-sm">
           Progress belajarmu akan tersimpan kok!
         </p>
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 rounded-xl bg-gray-500 py-3 font-bold text-white transition hover:bg-gray-600"
-            style={{ fontFamily: '"Comic Sans MS", cursive' }}
+            className="flex-1 rounded-xl bg-gray-500 py-3 font-comic font-bold text-white transition hover:bg-gray-600"
           >
             Batal
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 rounded-xl bg-red-500 py-3 font-bold text-white transition hover:bg-red-600"
-            style={{ fontFamily: '"Comic Sans MS", cursive' }}
+            className="flex-1 rounded-xl bg-red-500 py-3 font-comic font-bold text-white transition hover:bg-red-600"
           >
             Ya, Logout
           </button>
@@ -198,69 +258,63 @@ const LogoutModal = ({
   );
 };
 
-// --- KONTEN UNTUK SIDEBAR MOBILE ---
+// --- KONTEN UI (DIPISAH SESUAI MODE) ---
 const UserInfoSidebarContent = ({
   fullName,
   level,
   xp,
   lives,
-  cooldownEnd,
-  timeLeft,
   avatar,
   onAvatarClick,
   onLogoutClick,
 }: UserInfoProps) => {
-  // Tipe 'any' diganti dengan 'UserInfoProps'
-  const nameStrokeStyle = {
-    WebkitTextStroke: '2px #CE7310',
-    paintOrder: 'stroke fill',
-  };
-  const textStrokeStyle = {
-    WebkitTextStroke: '2px #CE7310',
-    paintOrder: 'stroke fill',
-  };
-
+  const isXpMax = xp === 100;
   return (
-    <div className="flex size-full flex-col gap-5 p-4">
-      {/* Avatar dan Nama */}
+    <div className="flex size-full flex-col p-4">
       <div className="flex flex-col items-center gap-3 text-center">
         <button
           onClick={onAvatarClick}
-          className="group relative flex-shrink-0"
+          className="group relative size-24 flex-shrink-0"
         >
-          <img
+          <Image
             src={avatar}
             alt="User Avatar"
-            className="size-24 rounded-full border-4 border-white bg-yellow-200 object-cover"
+            width={96}
+            height={96}
+            className="rounded-full border-4 border-white bg-yellow-200 object-cover"
           />
           <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
             <span className="text-sm font-bold text-white">Ganti</span>
           </div>
         </button>
-        <h3
-          className="w-full truncate text-2xl font-bold text-brand-yellow drop-shadow-lg"
-          style={nameStrokeStyle}
-        >
+        <h3 className="w-full truncate text-2xl font-bold text-brand-yellow drop-shadow-lg text-stroke-sm">
           {fullName}
         </h3>
       </div>
-
-      {/* Level, XP, dan Nyawa */}
-      <div className="space-y-3">
-        {/* XP Bar */}
+      <div className="mt-5 flex-grow space-y-4">
         <div>
           <div className="flex justify-between text-sm font-bold text-subtitle-cream drop-shadow-lg">
-            <span style={textStrokeStyle}>Level {level}</span>
-            <span style={textStrokeStyle}>{xp}/100 XP</span>
+            <span className="text-stroke-sm">Level {level}</span>
+            <span
+              className={clsx('text-stroke-sm', {
+                'animate-pulse text-cyan-300': isXpMax,
+              })}
+            >
+              {isXpMax ? 'Tes Siap!' : `${xp}/100 XP`}
+            </span>
           </div>
-          <div className="mt-1 h-4 w-full rounded-full border-2 border-yellow-400/50 bg-black/30">
+          <div
+            className={clsx(
+              'mt-1 h-4 w-full rounded-full border-2 border-yellow-400/50 bg-black/30 transition-shadow',
+              { 'shadow-lg shadow-cyan-500/50': isXpMax }
+            )}
+          >
             <div
               className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400"
               style={{ width: `${xp}%` }}
             ></div>
           </div>
         </div>
-        {/* Nyawa */}
         <div className="flex flex-col items-center gap-2">
           <div className="flex gap-2">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -270,20 +324,17 @@ const UserInfoSidebarContent = ({
               />
             ))}
           </div>
-          {cooldownEnd && (
-            <div className="mt-1 rounded-full border border-red-400 bg-red-800/70 px-3 py-1 text-xs font-bold text-white">
-              {timeLeft}
+          {lives === 0 && (
+            <div className="mt-1 rounded-full border border-yellow-400 bg-yellow-100 px-3 py-1 text-xs font-bold text-brand-brown-stroke">
+              Ulangi materi untuk isi nyawa!
             </div>
           )}
         </div>
       </div>
-
-      {/* Tombol Logout */}
-      <div className="mt-2">
+      <div className="mt-auto pt-4">
         <button
           onClick={onLogoutClick}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-500/90 p-3 font-bold text-white transition hover:scale-105 hover:bg-red-600"
-          style={{ fontFamily: '"Comic Sans MS", cursive' }}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-500/90 p-3 font-comic font-bold text-white transition hover:scale-105 hover:bg-red-600"
         >
           <LogoutIcon className="size-6" />
           <span>Logout</span>
@@ -293,56 +344,54 @@ const UserInfoSidebarContent = ({
   );
 };
 
-// --- KONTEN UNTUK TAMPILAN DESKTOP ---
 const UserInfoDesktopContent = ({
   fullName,
   level,
   xp,
   lives,
-  cooldownEnd,
-  timeLeft,
   avatar,
   onAvatarClick,
   onLogoutClick,
 }: UserInfoProps) => {
-  // Tipe 'any' diganti dengan 'UserInfoProps'
-  const nameStrokeStyle = {
-    WebkitTextStroke: '2px #CE7310',
-    paintOrder: 'stroke fill',
-  };
-  const textStrokeStyle = {
-    WebkitTextStroke: '2px #CE7310',
-    paintOrder: 'stroke fill',
-  };
-
+  const isXpMax = xp === 100;
   return (
     <div className="flex w-full items-center gap-4 p-3">
-      {/* Avatar */}
-      <button onClick={onAvatarClick} className="group relative flex-shrink-0">
-        <img
+      <button
+        onClick={onAvatarClick}
+        className="group relative size-20 flex-shrink-0"
+      >
+        <Image
           src={avatar}
           alt="User Avatar"
-          className="size-20 rounded-full border-4 border-white bg-yellow-200 object-cover"
+          width={80}
+          height={80}
+          className="rounded-full border-4 border-white bg-yellow-200 object-cover"
         />
         <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
           <span className="text-xs font-bold text-white">Ganti</span>
         </div>
       </button>
-
-      {/* Info Tengah: Nama & XP Bar */}
       <div className="flex-grow">
-        <h3
-          className="truncate text-2xl font-bold text-brand-yellow drop-shadow-lg"
-          style={nameStrokeStyle}
-        >
+        <h3 className="truncate text-2xl font-bold text-brand-yellow drop-shadow-lg text-stroke-sm">
           {fullName}
         </h3>
         <div className="mt-1">
           <div className="flex justify-between text-sm font-bold text-subtitle-cream drop-shadow-lg">
-            <span style={textStrokeStyle}>Level {level}</span>
-            <span style={textStrokeStyle}>{xp}/100 XP</span>
+            <span className="text-stroke-sm">Level {level}</span>
+            <span
+              className={clsx('text-stroke-sm', {
+                'animate-pulse text-cyan-300': isXpMax,
+              })}
+            >
+              {isXpMax ? 'Tes Siap!' : `${xp}/100 XP`}
+            </span>
           </div>
-          <div className="mt-1 h-4 w-full rounded-full border-2 border-yellow-400/50 bg-black/30">
+          <div
+            className={clsx(
+              'mt-1 h-4 w-full rounded-full border-2 border-yellow-400/50 bg-black/30 transition-shadow',
+              { 'shadow-lg shadow-cyan-500/50': isXpMax }
+            )}
+          >
             <div
               className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400"
               style={{ width: `${xp}%` }}
@@ -350,8 +399,6 @@ const UserInfoDesktopContent = ({
           </div>
         </div>
       </div>
-
-      {/* Info Kanan: Nyawa & Logout */}
       <div className="flex flex-shrink-0 flex-col items-center justify-center gap-2 self-stretch">
         <div className="flex gap-1">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -361,154 +408,274 @@ const UserInfoDesktopContent = ({
             />
           ))}
         </div>
-        {cooldownEnd ? (
-          <div className="rounded-full border border-red-400 bg-red-800/70 px-2 py-0.5 text-xs font-bold text-white">
-            {timeLeft}
+        {lives === 0 && (
+          <div className="rounded-full border border-yellow-400 bg-yellow-100 px-2 py-0.5 text-xs font-bold text-brand-brown-stroke">
+            Ulangi Materi!
           </div>
-        ) : (
-          <button
-            onClick={onLogoutClick}
-            className="flex items-center gap-2 rounded-lg border border-red-300 bg-red-500/80 px-3 py-1.5 text-sm font-bold text-white transition hover:bg-red-600"
-            style={{ fontFamily: '"Comic Sans MS", cursive' }}
-          >
-            <LogoutIcon className="size-4" />
-            <span>Logout</span>
-          </button>
         )}
+        <button
+          onClick={onLogoutClick}
+          className="flex items-center gap-2 rounded-lg border border-red-300 bg-red-500/80 px-3 py-1.5 font-comic text-sm font-bold text-white transition hover:bg-red-600"
+        >
+          <LogoutIcon className="size-4" />
+          <span>Logout</span>
+        </button>
       </div>
     </div>
   );
 };
 
-// --- KOMPONEN UTAMA DETAIL PENGGUNA (RESPONSIVE) ---
-export default function UserDetail() {
-  const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+const UserInfoDropdownContent = ({
+  fullName,
+  level,
+  xp,
+  lives,
+  avatar,
+  onAvatarClick,
+  onLogoutClick,
+}: UserInfoProps) => {
+  const isXpMax = xp === 100;
+  return (
+    <div className="w-80 max-w-[90vw] rounded-xl border-4 border-yellow-400/80 bg-form-bg/95 p-4 shadow-2xl backdrop-blur-sm">
+      <div className="flex items-start gap-3">
+        <button
+          onClick={onAvatarClick}
+          className="group relative size-16 flex-shrink-0"
+        >
+          <Image
+            src={avatar}
+            alt="User Avatar"
+            width={64}
+            height={64}
+            className="border-3 rounded-full border-white bg-yellow-200 object-cover"
+          />
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
+            <span className="text-xs font-bold text-white">Ganti</span>
+          </div>
+        </button>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-xl font-bold text-brand-yellow drop-shadow-lg text-stroke-sm">
+            {fullName}
+          </h3>
+          <div className="mt-2">
+            <div className="flex justify-between text-sm font-bold text-subtitle-cream drop-shadow-lg">
+              <span className="text-stroke-sm">Level {level}</span>
+              <span
+                className={clsx('text-stroke-sm', {
+                  'animate-pulse text-cyan-300': isXpMax,
+                })}
+              >
+                {isXpMax ? 'Tes Siap!' : `${xp}/100 XP`}
+              </span>
+            </div>
+            <div
+              className={clsx(
+                'mt-1 h-3 w-full rounded-full border-2 border-yellow-400/50 bg-black/30 transition-shadow',
+                { 'shadow-lg shadow-cyan-500/50': isXpMax }
+              )}
+            >
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400"
+                style={{ width: `${xp}%` }}
+              ></div>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex gap-1">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <HeartIcon
+                  key={i}
+                  className={`size-5 ${i < lives ? 'text-red-500 drop-shadow-md' : 'text-slate-700'}`}
+                />
+              ))}
+            </div>
+            {lives === 0 && (
+              <div className="rounded-full border border-yellow-400 bg-yellow-100 px-2 py-0.5 text-xs font-bold text-brand-brown-stroke">
+                Ulangi Materi!
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 border-t-2 border-yellow-400/30 pt-3">
+        <button
+          onClick={onLogoutClick}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-red-500/90 px-4 py-2.5 font-comic font-bold text-white transition hover:scale-105 hover:bg-red-600"
+        >
+          <LogoutIcon className="size-5" />
+          <span>Logout</span>
+        </button>
+      </div>
+    </div>
+  );
+};
 
-  const [fullName, setFullName] = useState('Nama Pengguna');
-  const [level, _setLevel] = useState(0);
-  const [xp, _setXp] = useState(50);
+// --- KOMPONEN UTAMA ---
+export default function UserDetail({
+  mode = 'card',
+  className = '',
+}: UserDetailProps) {
+  const router = useRouter();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [fullName, setFullName] = useState('Pengguna');
+  const [level, setLevel] = useState(1);
+  const [xp, setXp] = useState(0);
   const [lives, setLives] = useState(3);
-  const [cooldownEnd, setCooldownEnd] = useState<number | undefined>();
-  const [timeLeft, setTimeLeft] = useState('');
   const [avatar, setAvatar] = useState(avatars[0]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
+  const loadData = useCallback(() => {
+    const userData = getUserData();
+    const userProgress = getProgress();
+    if (userData) {
+      setFullName(userData.fullName);
+      setLives(userData.lives ?? 3);
+      setAvatar(userData.avatar || avatars[0]);
+    }
+    const highestCompleted =
+      userProgress.completedLevelIds.length > 0
+        ? Math.max(...userProgress.completedLevelIds)
+        : 0;
+    const currentLevel = highestCompleted + 1;
+    setLevel(currentLevel);
+    const currentLevelProgress = userProgress.learningProgress[currentLevel];
+    setXp(currentLevelProgress ? currentLevelProgress.progress : 0);
+  }, []);
   useEffect(() => {
     setIsClient(true);
-    const userRaw = localStorage.getItem('loggedInUser');
-    if (userRaw) {
-      setFullName(JSON.parse(userRaw).fullName);
-    }
-  }, [router]);
-
-  // Timer cooldown
+    loadData();
+    globalThis.addEventListener('userStateChange', loadData);
+    window.addEventListener('focus', loadData);
+    return () => {
+      globalThis.removeEventListener('userStateChange', loadData);
+      window.removeEventListener('focus', loadData);
+    };
+  }, [loadData]);
   useEffect(() => {
-    if (!cooldownEnd) return;
-    const interval = setInterval(() => {
-      const remaining = cooldownEnd - Date.now();
-      if (remaining <= 0) {
-        clearInterval(interval);
-        setLives(3);
-        setCooldownEnd(undefined);
-        setTimeLeft('');
-      } else {
-        const h = Math.floor((remaining / 3_600_000) % 24);
-        const m = Math.floor((remaining / 60_000) % 60);
-        const s = Math.floor((remaining / 1000) % 60);
-        setTimeLeft(
-          `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-        );
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
       }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [cooldownEnd]);
-
-  const handleLogout = () => {
-    setIsLogoutModalOpen(true);
-  };
-
+    };
+    if (isDropdownOpen)
+      document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isDropdownOpen]);
   const confirmLogout = () => {
-    localStorage.removeItem('loggedInUser');
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(PROGRESS_KEY);
     router.push('/login');
   };
-
   const handleAvatarSelect = (newAvatar: string) => {
     setAvatar(newAvatar);
+    const userData = getUserData();
+    if (userData) {
+      userData.avatar = newAvatar;
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    }
     setIsAvatarModalOpen(false);
   };
-
   const userInfoProps: UserInfoProps = {
     fullName,
     level,
     xp,
     lives,
-    cooldownEnd,
-    timeLeft,
     avatar,
     onAvatarClick: () => setIsAvatarModalOpen(true),
-    onLogoutClick: handleLogout,
+    onLogoutClick: () => setIsLogoutModalOpen(true),
   };
 
-  if (!isClient) return <div className="size-16"></div>;
+  if (!isClient) return <div className="size-14 bg-transparent"></div>;
 
   return (
-    <>
+    <div className={className}>
+      {' '}
       <AvatarModal
         isOpen={isAvatarModalOpen}
         onClose={() => setIsAvatarModalOpen(false)}
         onSelect={handleAvatarSelect}
-      />
+      />{' '}
       <LogoutModal
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}
         onConfirm={confirmLogout}
-      />
-
-      {/* --- TAMPILAN DESKTOP (HORIZONTAL) --- */}
-      <div className="hidden w-full max-w-md rounded-2xl border-4 border-yellow-400/80 bg-form-bg/90 shadow-lg backdrop-blur-sm md:block">
-        <UserInfoDesktopContent {...userInfoProps} />
-      </div>
-
-      {/* --- TAMPILAN MOBILE (SIDEBAR) --- */}
-      <div className="md:hidden">
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="relative size-14 rounded-full border-2 border-yellow-400/80 bg-yellow-200 shadow-lg transition hover:scale-105"
-        >
-          <img
-            src={avatar}
-            alt="Buka Menu Pengguna"
-            className="size-full rounded-full object-cover"
-          />
-          <div className="absolute bottom-0 right-0 grid size-5 place-items-center rounded-full border-2 border-yellow-400 bg-form-bg">
-            <MenuIcon className="size-3 text-brand-yellow" />
-          </div>
-        </button>
-
-        {/* Overlay Latar Belakang */}
-        <div
-          className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity ${isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-          onClick={() => setIsSidebarOpen(false)}
-        ></div>
-
-        {/* Sidebar Konten */}
-        <div
-          className={`fixed left-0 top-0 z-50 h-full w-72 max-w-[80vw] transform border-r-4 border-yellow-400/80 bg-form-bg transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-        >
-          <div className="relative flex h-full flex-col">
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="absolute right-3 top-3 text-brand-yellow/80 hover:text-brand-yellow"
-            >
-              <CloseIcon className="size-7" />
-            </button>
-            <UserInfoSidebarContent {...userInfoProps} />
-          </div>
+      />{' '}
+      {mode === 'card' && (
+        <div className="w-full max-w-md rounded-2xl border-4 border-yellow-400/80 bg-form-bg/90 shadow-lg backdrop-blur-sm">
+          {' '}
+          <UserInfoDesktopContent {...userInfoProps} />{' '}
         </div>
-      </div>
-    </>
+      )}{' '}
+      {mode === 'sidebar' && (
+        <div>
+          {' '}
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="relative flex size-14 items-center justify-center rounded-full border-4 border-input-border bg-amber-500 shadow-xl transition-transform hover:scale-110 active:scale-95"
+          >
+            <Image
+              src={avatar}
+              alt="Buka Menu"
+              fill
+              className="rounded-full object-cover p-0.5"
+            />
+            <div className="absolute bottom-0 right-0 grid size-5 place-items-center rounded-full border-2 border-yellow-400 bg-form-bg">
+              <MenuIcon className="size-3 text-brand-yellow" />
+            </div>
+          </button>{' '}
+          <div
+            className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity ${isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>{' '}
+          <div
+            className={`fixed left-0 top-0 z-50 h-full w-72 max-w-[80vw] transform border-r-4 border-yellow-400/80 bg-form-bg transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          >
+            {' '}
+            <div className="relative flex h-full flex-col">
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="absolute right-3 top-3 text-brand-yellow/80 hover:text-brand-yellow"
+              >
+                <CloseIcon className="size-7" />
+              </button>
+              <UserInfoSidebarContent {...userInfoProps} />
+            </div>{' '}
+          </div>{' '}
+        </div>
+      )}{' '}
+      {mode === 'dropdown' && (
+        <div className="relative" ref={dropdownRef}>
+          {' '}
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="relative flex size-14 items-center justify-center rounded-full border-4 border-input-border bg-amber-500 shadow-xl transition-transform hover:scale-110 active:scale-95"
+          >
+            <Image
+              src={avatar}
+              alt="Buka Menu"
+              fill
+              className="rounded-full object-cover p-0.5"
+            />
+            <div className="absolute bottom-0 right-0 grid size-5 place-items-center rounded-full border-2 border-yellow-400 bg-form-bg">
+              <ChevronDownIcon
+                className={`size-3 text-brand-yellow transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+              />
+            </div>
+          </button>{' '}
+          <div
+            className={`absolute right-0 top-full z-50 mt-2 origin-top-right transform transition-all duration-200 ${isDropdownOpen ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0'}`}
+          >
+            <UserInfoDropdownContent {...userInfoProps} />
+          </div>{' '}
+        </div>
+      )}{' '}
+    </div>
   );
 }
