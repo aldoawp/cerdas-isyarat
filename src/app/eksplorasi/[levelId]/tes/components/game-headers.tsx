@@ -31,9 +31,9 @@ export const GameHeader = ({
             // [DIPERBAIKI] Tanda kurung ditambahkan di sini untuk memperbaiki error
             index < currentIndex
               ? 'border-icon-green-bg bg-icon-green-bg text-white shadow-lg'
-              : index === currentIndex
-                ? 'animate-pulse border-brand-yellow bg-brand-yellow/20 text-brand-brown-stroke shadow-md'
-                : 'border-gray-300 bg-white/50 text-gray-400'
+              : (index === currentIndex
+                  ? 'animate-pulse border-brand-yellow bg-brand-yellow/20 text-brand-brown-stroke shadow-md'
+                  : 'border-gray-300 bg-white/50 text-gray-400')
           )}
         >
           {index < currentIndex ? (

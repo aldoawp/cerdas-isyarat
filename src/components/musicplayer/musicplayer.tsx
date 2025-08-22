@@ -91,10 +91,12 @@ const MusicPlayer = () => {
               {/* [DIPERBAIKI] Tanda kurung ditambahkan di sini */}
               {isPlaying ? (
                 <SpeakerWaveIcon className="size-7 text-white" />
-              ) : hasUserInteracted ? (
-                <SpeakerXMarkIcon className="size-7 text-white/70 transition-colors duration-300 group-hover:text-white" />
               ) : (
-                <PlayIcon className="size-7 text-white/70 transition-colors duration-300 group-hover:text-white" />
+                hasUserInteracted ? (
+                  <SpeakerXMarkIcon className="size-7 text-white/70 transition-colors duration-300 group-hover:text-white" />
+                ) : (
+                  <PlayIcon className="size-7 text-white/70 transition-colors duration-300 group-hover:text-white" />
+                )
               )}
             </div>
           </button>

@@ -198,7 +198,7 @@ const TimerDisplay = ({
       <div className="relative mt-1 h-2 w-full overflow-hidden rounded-full border-2 border-white/20 bg-white/30 shadow-inner sm:h-3">
         {' '}
         <div
-          className={`h-full rounded-full transition-all duration-1000 ease-linear ${percentage > 50 ? 'bg-gradient-to-r from-blue-400 to-blue-500' : percentage > 25 ? 'bg-gradient-to-r from-indigo-400 to-purple-400' : 'animate-pulse bg-gradient-to-r from-red-400 to-red-500'}`}
+          className={`h-full rounded-full transition-all duration-1000 ease-linear ${percentage > 50 ? 'bg-gradient-to-r from-blue-400 to-blue-500' : (percentage > 25 ? 'bg-gradient-to-r from-indigo-400 to-purple-400' : 'animate-pulse bg-gradient-to-r from-red-400 to-red-500')}`}
           style={{ width: `${percentage}%` }}
         />{' '}
       </div>{' '}
