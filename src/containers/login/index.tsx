@@ -4,10 +4,12 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import UserIcon from '@/components/icons/UserIcon';
-import LockIcon from '@/components/icons/LockIcon';
-import EyeOpenIcon from '@/components/icons/EyeOpenIcon';
-import EyeClosedIcon from '@/components/icons/EyeClosedIcon';
+import {
+  UserIcon,
+  LockIcon,
+  EyeOpenIcon,
+  EyeClosedIcon,
+} from '@/components/icons';
 
 // --- TIPE DATA & INTERFACE ---
 interface User {
