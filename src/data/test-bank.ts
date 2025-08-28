@@ -1,5 +1,4 @@
-// src/data/testBank.ts
-import type { Question } from '@/types/test';
+import { Question } from '@/types/models';
 
 export const TEST_DURATION_MS = 30 * 60 * 1000; // 30 menit
 
