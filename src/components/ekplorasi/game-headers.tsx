@@ -1,6 +1,6 @@
 'use client';
 
-import BackButton from '@/components/backbutton/backbutton';
+import BackButton from '@/components/shared/backbutton/backbutton';
 import clsx from 'clsx';
 
 // Tipe untuk properti yang diterima komponen ini

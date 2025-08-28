@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import React from 'react';
 import '@/styles/globals.css';
-import { MusicProvider } from '@/components/musicplayer/music-context'; // Sesuaikan path
-import MusicPlayer from '@/components/musicplayer/musicplayer';
+import { MusicProvider } from '@/components/shared/musicplayer/music-context'; // Sesuaikan path
+import MusicPlayer from '@/components/shared/musicplayer/musicplayer';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',

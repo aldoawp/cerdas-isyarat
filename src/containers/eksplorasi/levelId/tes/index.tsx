@@ -2,8 +2,6 @@
 
 import React from 'react';
 import { useParams } from 'next/navigation';
-
-// Komponen UI yang sudah dipisah
 import { GameHeader } from '@/components/ekplorasi/game-headers';
 import { FloatingMascot } from '@/components/ekplorasi/floating.maskot';
 import { FillInTheBlankMode } from '@/components/ekplorasi/fill-in-the-blank';
@@ -11,8 +9,6 @@ import { MultipleChoiceImageMode } from '@/components/ekplorasi/multiple-choice-
 import { NavigationButtons } from '@/components/ekplorasi/navigation-button';
 import { ResultsModal } from '@/components/ekplorasi/result-modal';
 import { LeaveConfirmationModal } from '@/components/ekplorasi/leave-confirmation-modals';
-
-// Logika inti dari custom hook
 import { useTest } from '@/lib/hooks/use-tests';
 
 export default function TestPage() {

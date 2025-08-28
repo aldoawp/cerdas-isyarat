@@ -6,9 +6,9 @@ import {
   decreaseLife,
   getUserData,
   completeLevel,
-} from '@/components/userinfo';
+} from '@/components/shared/userinfo';
 import { testBank, TEST_DURATION_MS } from '@/data/test-bank';
-import type { TestState } from '@/types/test';
+import { TestState } from '@/types/models';
 
 export const useTest = (levelId: number) => {
   const router = useRouter();

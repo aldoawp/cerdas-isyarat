@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
-import { refillLives } from '@/components/userinfo';
-import BackButton from '../../../../components/backbutton/backbutton'; // [DITAMBAHKAN] Impor komponen BackButton
+import { refillLives } from '@/components/shared/userinfo';
+import BackButton from '../../../../components/shared/backbutton/backbutton'; // [DITAMBAHKAN] Impor komponen BackButton
 
 // --- Tipe Data & Logika Progress ---
 interface MateriItem {

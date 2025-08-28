@@ -10,22 +10,11 @@ import {
   EyeOpenIcon,
   EyeClosedIcon,
 } from '@/components/icons';
+import { User } from '@/types/models';
 
-// --- TIPE DATA & INTERFACE ---
-interface User {
-  fullName: string;
-  age: string;
-  username: string;
-  password: string;
-}
-
-// Icons migrated to src/components/icons/*.tsx
-
-// --- KOMPONEN UTAMA HALAMAN LOGIN ---
 export default function LoginPage() {
   const router = useRouter();
 
-  // State tidak perlu diubah
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');

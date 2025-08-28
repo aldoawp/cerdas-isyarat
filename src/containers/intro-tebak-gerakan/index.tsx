@@ -2,49 +2,13 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import BackButton from '@/components/backbutton/backbutton';
-import UserDetail from '@/components/userinfo';
-import MusicPlayer from '@/components/musicplayer/musicplayer';
+import BackButton from '@/components/shared/backbutton/backbutton';
+import UserDetail from '@/components/shared/userinfo';
+import MusicPlayer from '@/components/shared/musicplayer/musicplayer';
 import Image from 'next/image';
 import { CameraIcon, RefreshIcon, CloseIcon } from '@/components/icons';
+import InstructionCard from '@/components/intro-tebak-gerakan/instruction-card';
 
-// Ikon diganti ke komponen @icons
-
-// --- KOMPONEN KARTU INSTRUKSI ---
-interface InstructionCardProps {
-  step: string;
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-}
-const InstructionCard = ({
-  step,
-  title,
-  children,
-  className = '',
-}: InstructionCardProps) => (
-  <div
-    className={`relative rounded-3xl border-4 border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50 p-3 shadow-lg ${className}`}
-  >
-    {' '}
-    <div className="absolute -top-4 left-4">
-      {' '}
-      <span className="rounded-full border-2 border-white bg-gradient-to-r from-orange-500 to-yellow-600 px-3 py-1.5 font-comic text-sm font-bold text-white shadow-md">
-        {' '}
-        {step}{' '}
-      </span>{' '}
-    </div>{' '}
-    <div className="mt-4 flex h-full flex-col items-center justify-center text-center">
-      {' '}
-      <h3 className="mb-2 font-comic text-lg font-bold text-brand-brown-stroke">
-        {title}
-      </h3>{' '}
-      {children}{' '}
-    </div>{' '}
-  </div>
-);
-
-// --- KOMPONEN UTAMA HALAMAN TEBAK GERAKAN ---
 export default function IntroTebakGerakanPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | undefined>(undefined);

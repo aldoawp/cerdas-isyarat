@@ -1,0 +1,230 @@
+import { Category, Word } from '@/types/models';
+
+const dummyCategories: Category[] = [
+  { id: 'hewan', name: 'Hewan', imageUrl: '/images/kategori-hewan.png' },
+  {
+    id: 'kata-tanya',
+    name: 'Kata Tanya',
+    imageUrl: '/images/kategori-tanya.png',
+  },
+  { id: 'abjad', name: 'Abjad', imageUrl: '/images/kategori-abjad.png' },
+  {
+    id: 'perkenalan',
+    name: 'Perkenalan',
+    imageUrl: '/images/kategori-kenalan.png',
+  },
+  {
+    id: 'keluarga',
+    name: 'Keluarga',
+    imageUrl: '/images/kategori-keluarga.png',
+  },
+  { id: 'angka', name: 'Angka', imageUrl: '/images/kategori-angka.png' },
+];
+const dummyWords: Word[] = [
+  {
+    id: 1,
+    name: 'Kucing',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 2,
+    name: 'Anjing',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 3,
+    name: 'Burung',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 4,
+    name: 'Kuda',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 5,
+    name: 'Kelinci',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 6,
+    name: 'Ikan',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 7,
+    name: 'Kambing',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 8,
+    name: 'Singa',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 9,
+    name: 'Gajah',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 10,
+    name: 'Harimau',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 11,
+    name: 'Zebra',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 12,
+    name: 'Jerapah',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 13,
+    name: 'Beruang',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 14,
+    name: 'Monyet',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 15,
+    name: 'Kerbau',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 16,
+    name: 'Ayam',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 17,
+    name: 'Bebek',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 18,
+    name: 'Domba',
+    category: 'hewan',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 19,
+    name: 'Apa',
+    category: 'kata-tanya',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 20,
+    name: 'Siapa',
+    category: 'kata-tanya',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 21,
+    name: 'Di mana',
+    category: 'kata-tanya',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 22,
+    name: 'Kapan',
+    category: 'kata-tanya',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 23,
+    name: 'Mengapa',
+    category: 'kata-tanya',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 24,
+    name: 'Bagaimana',
+    category: 'kata-tanya',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 25,
+    name: 'A',
+    category: 'abjad',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 26,
+    name: 'B',
+    category: 'abjad',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 27,
+    name: 'C',
+    category: 'abjad',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 28,
+    name: 'D',
+    category: 'abjad',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 29,
+    name: 'E',
+    category: 'abjad',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 30,
+    name: 'F',
+    category: 'abjad',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 31,
+    name: 'G',
+    category: 'abjad',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 32,
+    name: 'H',
+    category: 'abjad',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 33,
+    name: 'I',
+    category: 'abjad',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+  {
+    id: 34,
+    name: 'J',
+    category: 'abjad',
+    gifUrl: '/images/gif-placeholder.gif',
+  },
+];
+
+export { dummyCategories, dummyWords };

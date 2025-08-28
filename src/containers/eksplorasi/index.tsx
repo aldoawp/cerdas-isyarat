@@ -9,13 +9,13 @@ import {
   CheckCircleIcon,
 } from '@/components/icons';
 import clsx from 'clsx';
-import BackButton from '@/components/backbutton/backbutton';
-import UserDetail, { getUserData } from '@/components/userinfo';
-import MusicPlayer from '@/components/musicplayer/musicplayer';
+import BackButton from '@/components/shared/backbutton/backbutton';
+import UserDetail, { getUserData } from '@/components/shared/userinfo';
+import MusicPlayer from '@/components/shared/musicplayer/musicplayer';
 import {
   getProgress as getProgressFromLocalStorage,
   resetLevelProgress,
-} from '@/lib/progress-manager';
+} from '@/lib/utils/progress-manager';
 
 // --- TIPE DATA ---
 type LevelStatus = 'locked' | 'unlocked' | 'completed';
