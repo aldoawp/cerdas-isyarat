@@ -2,8 +2,8 @@
 
 import clsx from 'clsx';
 import Image from 'next/image';
-import type { MultipleChoiceImageQuestion } from '@/types/test'; // Pastikan path ke tipe data benar
 import { QuestionDisplay } from './question-displays';
+import { MultipleChoiceImageQuestion } from '@/types/models';
 
 export const MultipleChoiceImageMode = ({
   question,
