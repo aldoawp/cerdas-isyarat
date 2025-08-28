@@ -1,8 +1,8 @@
 'use client';
 
 import clsx from 'clsx';
-import type { FillInTheBlankQuestion } from '@/types/test'; // Pastikan path ke tipe data benar
 import { QuestionDisplay } from './question-displays';
+import { FillInTheBlankQuestion } from '@/types/models';
 
 export const FillInTheBlankMode = ({
   question,
