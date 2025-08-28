@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import UserDetail from '@/components/userinfo/userinfo';
+import UserDetail from '@/components/userinfo';
 import Image from 'next/image';
 
 // --- KOMPONEN IKON (Tidak ada perubahan) ---

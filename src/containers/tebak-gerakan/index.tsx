@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
+import { StarIcon, ClockIcon } from '@/components/icons';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/backbutton/backbutton';
 
@@ -83,37 +84,7 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
-// --- Ikon ---
-const StarIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    {...props}
-  >
-    {' '}
-    <path
-      fillRule="evenodd"
-      d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-      clipRule="evenodd"
-    />{' '}
-  </svg>
-);
-const ClockIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    {...props}
-  >
-    {' '}
-    <path
-      fillRule="evenodd"
-      d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z"
-      clipRule="evenodd"
-    />{' '}
-  </svg>
-);
+// Ikon dipindah ke @icons
 
 // --- Komponen UI Lokal ---
 const ScoreDisplay = ({
@@ -198,7 +169,7 @@ const TimerDisplay = ({
       <div className="relative mt-1 h-2 w-full overflow-hidden rounded-full border-2 border-white/20 bg-white/30 shadow-inner sm:h-3">
         {' '}
         <div
-          className={`h-full rounded-full transition-all duration-1000 ease-linear ${percentage > 50 ? 'bg-gradient-to-r from-blue-400 to-blue-500' : (percentage > 25 ? 'bg-gradient-to-r from-indigo-400 to-purple-400' : 'animate-pulse bg-gradient-to-r from-red-400 to-red-500')}`}
+          className={`h-full rounded-full transition-all duration-1000 ease-linear ${percentage > 50 ? 'bg-gradient-to-r from-blue-400 to-blue-500' : percentage > 25 ? 'bg-gradient-to-r from-indigo-400 to-purple-400' : 'animate-pulse bg-gradient-to-r from-red-400 to-red-500'}`}
           style={{ width: `${percentage}%` }}
         />{' '}
       </div>{' '}
@@ -398,7 +369,7 @@ const ActionButton = ({
 };
 
 // --- KOMPONEN UTAMA HALAMAN TES ---
-export default function TebakGerakanTestPage() {
+export default function TebakGerakanPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | undefined>(undefined);
   const streamRef = useRef<MediaStream | undefined>(undefined);

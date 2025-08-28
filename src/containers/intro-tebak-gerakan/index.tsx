@@ -3,56 +3,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/backbutton/backbutton';
-import UserDetail from '@/components/userinfo/userinfo';
+import UserDetail from '@/components/userinfo';
 import MusicPlayer from '@/components/musicplayer/musicplayer';
 import Image from 'next/image';
+import { CameraIcon, RefreshIcon, CloseIcon } from '@/components/icons';
 
-// --- KOMPONEN IKON ---
-const CameraIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    {...props}
-  >
-    {' '}
-    <path d="M12 9a3.75 3.75 0 100 7.5A3.75 3.75 0 0012 9z" />{' '}
-    <path
-      fillRule="evenodd"
-      d="M9.344 3.071a49.52 49.52 0 015.312 0c.967.052 1.83.585 2.342 1.374a3.026 3.026 0 01.64 2.288V17.5a3.026 3.026 0 01-.64 2.288c-.512.79-1.375 1.322-2.342 1.374a49.52 49.52 0 01-5.312 0c-.967-.052-1.83-.585-2.342-1.374a3.026 3.026 0 01-.64-2.288V6.733a3.026 3.026 0 01.64-2.288c.512-.79 1.375 1.322 2.342 1.374zM12 18a6 6 0 100-12 6 6 0 000 12z"
-      clipRule="evenodd"
-    />{' '}
-  </svg>
-);
-const XIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    {...props}
-  >
-    {' '}
-    <path d="M18 6 6 18" /> <path d="m6 6 12 12" />{' '}
-  </svg>
-);
-const RefreshIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    {...props}
-  >
-    {' '}
-    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />{' '}
-    <path d="M21 3v5h-5" />{' '}
-    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />{' '}
-    <path d="M3 21v-5h5" />{' '}
-  </svg>
-);
+// Ikon diganti ke komponen @icons
 
 // --- KOMPONEN KARTU INSTRUKSI ---
 interface InstructionCardProps {
@@ -89,7 +45,7 @@ const InstructionCard = ({
 );
 
 // --- KOMPONEN UTAMA HALAMAN TEBAK GERAKAN ---
-export default function TebakGerakanPage() {
+export default function IntroTebakGerakanPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | undefined>(undefined);
   const streamRef = useRef<MediaStream | undefined>(undefined);
@@ -316,7 +272,7 @@ export default function TebakGerakanPage() {
                           className="rounded-full bg-red-500 p-2 text-white shadow-lg transition hover:scale-110 hover:bg-red-600"
                           title="Matikan Kamera"
                         >
-                          <XIcon className="size-4" />
+                          <CloseIcon className="size-4" />
                         </button>
                       </div>
                       <div className="absolute bottom-2 left-2 z-20 rounded-lg bg-black/70 px-3 py-1 font-comic text-xs text-white">
@@ -392,7 +348,7 @@ export default function TebakGerakanPage() {
 
           <div className="text-center">
             <button
-              onClick={() => router.push('/tes-tebak-gerakan')}
+              onClick={() => router.push('/tebak-gerakan')}
               disabled={!isCameraActive}
               className="rounded-full bg-gradient-to-r from-orange-400 to-yellow-500 px-8 py-3 font-comic text-xl font-bold text-white shadow-xl transition-all hover:scale-105 disabled:cursor-not-allowed disabled:grayscale disabled:hover:scale-100"
             >
@@ -419,7 +375,7 @@ export default function TebakGerakanPage() {
                     onClick={() => setIsMascotVisible(false)}
                     className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-white shadow-md transition-colors hover:bg-red-600"
                   >
-                    <XIcon className="size-2.5" />
+                    <CloseIcon className="size-2.5" />
                   </button>
                 </div>
               </div>

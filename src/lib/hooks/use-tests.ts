@@ -6,7 +6,7 @@ import {
   decreaseLife,
   getUserData,
   completeLevel,
-} from '@/components/userinfo/userinfo';
+} from '@/components/userinfo';
 import { testBank, TEST_DURATION_MS } from '@/data/test-bank';
 import type { TestState } from '@/types/test';
 
