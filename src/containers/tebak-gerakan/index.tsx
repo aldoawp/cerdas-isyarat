@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/shared/backbutton/backbutton';
-import { mockMovements } from '@/data/tebak-gerakan-data';
+import { mockMovements } from '@/dummy/tebak-gerakan-data';
 import { shuffleArray } from '@/lib/utils/arrays-util';
 import ActionButton from '@/components/tebak-gerakan/action-button';
 import ConfirmationModal from '@/components/tebak-gerakan/confirmation-modal';

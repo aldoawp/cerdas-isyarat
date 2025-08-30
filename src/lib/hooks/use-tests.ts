@@ -7,7 +7,7 @@ import {
   getUserData,
   completeLevel,
 } from '@/components/shared/userinfo';
-import { testBank, TEST_DURATION_MS } from '@/data/test-bank';
+import { testBank, TEST_DURATION_MS } from '@/dummy/test-bank';
 import { TestState } from '@/types/models';
 
 export const useTest = (levelId: number) => {

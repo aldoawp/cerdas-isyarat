@@ -9,7 +9,7 @@ import MusicPlayer from '@/components/shared/musicplayer/musicplayer';
 import { SearchIcon, CloseIcon } from '@/components/icons';
 import Breadcrumb from '@/components/kamus/breadcrumb';
 import CompactPagination from '@/components/kamus/compact-pagination';
-import { getKamusData } from '@/actions/kamus-action';
+import { getKamusData } from '@/repositories/kamus-repository';
 import { isCategory, isWord } from '@/lib/utils/utils';
 import { Word, Category, SearchResult } from '@/types/models';
 

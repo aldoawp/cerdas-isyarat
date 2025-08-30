@@ -1,4 +1,4 @@
-import { dummyCategories, dummyWords } from '@/data/kamus-data';
+import { dummyCategories, dummyWords } from '@/dummy/kamus-data';
 import { Category, Word } from '@/types/models';
 
 const getKamusData = async (): Promise<{
