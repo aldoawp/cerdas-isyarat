@@ -16,14 +16,8 @@ export default function OnboardingPage() {
   const screenSize = useScreenSize();
 
   useEffect(() => {
-    const loggedInUserRaw = localStorage.getItem('loggedInUser');
-    if (loggedInUserRaw) {
-      const user = JSON.parse(loggedInUserRaw);
-      const userFirstName = user.fullName.split(' ')[0];
-      setFirstName(userFirstName);
-    } else {
-      router.push('/login');
-    }
+    // Hapus referensi autentikasi localStorage
+    setFirstName('Kamu');
   }, [router]);
 
   if (!firstName) {

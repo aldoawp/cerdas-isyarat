@@ -14,7 +14,7 @@ type UserProgress = {
 type UserData = { fullName: string; lives?: number; avatar?: string };
 
 // --- LOGIKA HELPER ---
-const USER_KEY = 'loggedInUser';
+// const USER_KEY = 'loggedInUser';
 const PROGRESS_KEY = 'userBisindoProgress';
 
 const getProgress = (): UserProgress => {
@@ -33,12 +33,8 @@ const getProgress = (): UserProgress => {
 // [DIPERBAIKI] Menggunakan 'undefined' sebagai ganti 'null'
 export const getUserData = (): UserData | undefined => {
   if (globalThis.window === undefined) return undefined;
-  try {
-    const data = localStorage.getItem(USER_KEY);
-    return data ? JSON.parse(data) : undefined;
-  } catch {
-    return undefined;
-  }
+  // Hapus pembacaan user dari localStorage untuk autentikasi
+  return undefined;
 };
 
 export const decreaseLife = () => {
@@ -47,7 +43,6 @@ export const decreaseLife = () => {
   const currentLives = userData.lives ?? 3;
   if (currentLives > 0) {
     userData.lives = currentLives - 1;
-    localStorage.setItem(USER_KEY, JSON.stringify(userData));
     globalThis.dispatchEvent(new Event('userStateChange'));
   }
 };
@@ -57,9 +52,7 @@ export const refillLives = () => {
   if (!userData) return;
   if ((userData.lives ?? 3) < 3) {
     userData.lives = 3;
-    localStorage.setItem(USER_KEY, JSON.stringify(userData));
     globalThis.dispatchEvent(new Event('userStateChange'));
-    // [DIPERBAIKI] Menghapus console.log
   }
 };
 
@@ -68,7 +61,6 @@ export const completeLevel = (levelId: number) => {
   const progress = getProgress();
   if (!progress.completedLevelIds.includes(levelId)) {
     progress.completedLevelIds.push(levelId);
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
     globalThis.dispatchEvent(new Event('userStateChange'));
   }
 };
@@ -569,17 +561,11 @@ export default function UserDetail({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isDropdownOpen]);
   const confirmLogout = () => {
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(PROGRESS_KEY);
     router.push('/login');
   };
   const handleAvatarSelect = (newAvatar: string) => {
     setAvatar(newAvatar);
-    const userData = getUserData();
-    if (userData) {
-      userData.avatar = newAvatar;
-      localStorage.setItem(USER_KEY, JSON.stringify(userData));
-    }
+    // Hapus penyimpanan avatar ke localStorage terkait auth
     setIsAvatarModalOpen(false);
   };
   const userInfoProps: UserInfoProps = {

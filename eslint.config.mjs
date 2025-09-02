@@ -35,7 +35,7 @@ const eslintConfig = [
       'unicorn/no-nested-ternary': 'off',
       'no-undef': 'error',
       'react/react-in-jsx-scope': 'off',
-      "tailwindcss/migration-from-tailwind-2": "off",
+      'tailwindcss/migration-from-tailwind-2': 'off',
       'tailwindcss/no-custom-classname': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -45,6 +45,7 @@ const eslintConfig = [
           caughtErrorsIgnorePattern: '^_',
         },
       ],
+      '@typescript-eslint/no-explicit-any': 'off',
       'unicorn/prevent-abbreviations': 'off',
     },
   },

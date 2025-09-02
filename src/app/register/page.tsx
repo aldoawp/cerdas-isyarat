@@ -1,5 +1,13 @@
 import RegisterPage from '@/containers/register';
+import { registerUser } from '@/services/users-service';
+import { FormDataState } from '@/types/forms';
+
+export const registerAction = async (form: FormDataState) => {
+  'use server';
+  const result = await registerUser(form);
+  return result;
+};
 
 export default function Register() {
-  return <RegisterPage />;
+  return <RegisterPage onRegister={registerAction} />;
 }

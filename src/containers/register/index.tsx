@@ -12,14 +12,18 @@ import Image from 'next/image';
 import Link from 'next/link';
 import SuccessModal from '@/components/register/success-modal';
 import { FormDataState, FormErrors } from '@/types/forms';
-import { User } from '@/types/models';
 
-export default function RegisterPage() {
+type RegisterPageProps = {
+  onRegister?: (form: FormDataState) => Promise<unknown>;
+};
+
+export default function RegisterPage({ onRegister }: RegisterPageProps) {
   const router = useRouter();
 
   const [formData, setFormData] = useState<FormDataState>({
     fullName: '',
     age: '',
+    email: '',
     username: '',
     password: '',
     confirmPassword: '',
@@ -59,37 +63,24 @@ export default function RegisterPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const isFormValid = validateForm();
     if (!isFormValid) {
       setIsShaking(true);
       return;
     }
-    const existingUsersRaw = localStorage.getItem('users');
-    const existingUsers: User[] = existingUsersRaw
-      ? JSON.parse(existingUsersRaw)
-      : [];
-    const isUsernameTaken = existingUsers.some(
-      user => user.username.toLowerCase() === formData.username.toLowerCase()
-    );
-    if (isUsernameTaken) {
-      setErrors(prev => ({
-        ...prev,
-        username: 'Username ini sudah dipakai, coba yang lain, yuk!',
-      }));
+    try {
+      if (onRegister) {
+        await onRegister(formData);
+      }
+      setShowSuccessModal(true);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Registrasi gagal.';
+      setErrors(prev => ({ ...prev, username: message }));
       setIsShaking(true);
-      return;
     }
-    const newUser: User = {
-      fullName: formData.fullName,
-      age: formData.age,
-      username: formData.username,
-      password: formData.password,
-    };
-    const updatedUsers = [...existingUsers, newUser];
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-    setShowSuccessModal(true);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,6 +105,7 @@ export default function RegisterPage() {
   }[] = [
     { name: 'fullName', placeholder: 'Nama lengkap', type: 'text' },
     { name: 'age', placeholder: 'Umur', type: 'number' },
+    { name: 'email', placeholder: 'Email', type: 'text' },
     { name: 'username', placeholder: 'Username', type: 'text' },
     { name: 'password', placeholder: 'Password', type: 'password' },
     {
@@ -124,20 +116,8 @@ export default function RegisterPage() {
   ];
   const icons = [
     <UserIcon key="nama" className="size-5 text-white md:size-6" />,
-    <svg
-      key="umur"
-      xmlns="http://www.w3.org/2000/svg"
-      className="size-5 text-white md:size-6"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-    >
-      {' '}
-      <path
-        fillRule="evenodd"
-        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V12a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z"
-        clipRule="evenodd"
-      />{' '}
-    </svg>,
+    <UserIcon key="nama" className="size-5 text-white md:size-6" />,
+    <UserIcon key="user" className="size-5 text-white md:size-6" />,
     <UserIcon key="user" className="size-5 text-white md:size-6" />,
     <LockIcon key="pass" className="size-5 text-white md:size-6" />,
     <LockIcon key="konfirm" className="size-5 text-white md:size-6" />,
@@ -162,7 +142,7 @@ export default function RegisterPage() {
         />
       )}
 
-      <div className="relative grid min-h-screen place-items-center overflow-hidden bg-mobile-bg bg-cover bg-center p-4 font-sans md:bg-desktop-bg">
+      <div className="relative grid min-h-screen place-items-center overflow-hidden bg-mobile-bg bg-cover bg-center p-12 font-sans md:bg-desktop-bg">
         <Link
           href="/login"
           className="absolute left-4 top-4 z-20 grid size-12 place-items-center rounded-full border-2 border-yellow-400/80 bg-form-bg/90 text-brand-yellow shadow-lg transition-transform hover:scale-110 md:left-6 md:top-6"
@@ -216,7 +196,6 @@ export default function RegisterPage() {
                           {icons[index % 5]}
                         </div>
                         <input
-                          // [DIPERBAIKI] Tanda kurung ditambahkan di sini
                           type={
                             isPasswordField
                               ? passwordVisibility[fieldName]
