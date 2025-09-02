@@ -2,7 +2,7 @@ import RegisterPage from '@/containers/register';
 import { registerUser } from '@/services/users-service';
 import { FormDataState } from '@/types/forms';
 
-export const registerAction = async (form: FormDataState) => {
+const registerAction = async (form: FormDataState) => {
   'use server';
   const result = await registerUser(form);
   return result;
