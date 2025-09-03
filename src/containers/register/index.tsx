@@ -128,6 +128,7 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
     'bg-icon-red-bg',
     'bg-icon-teal-bg',
     'bg-icon-teal-bg',
+    'bg-icon-teal-bg',
   ];
 
   return (

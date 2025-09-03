@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image'; // [DIPERBAIKI] Impor komponen Image dari Next.js
 import clsx from 'clsx';
+import { useAuth } from '@/lib/contexts/auth-context';
 
 // --- Tipe Data ---
 type LevelProgress = { progress: number; lastIndex: number };
@@ -568,10 +569,24 @@ export default function UserDetail({
       document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isDropdownOpen]);
-  const confirmLogout = () => {
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(PROGRESS_KEY);
-    router.push('/login');
+  const { signOut } = useAuth();
+
+  const confirmLogout = async () => {
+    try {
+      // Call Supabase logout through auth context
+      await signOut();
+
+      // Clear localStorage data
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(PROGRESS_KEY);
+
+      // Note: The auth context will handle the redirect automatically
+    } catch {
+      // Even if logout fails, clear localStorage and redirect to login page for security
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(PROGRESS_KEY);
+      router.push('/login');
+    }
   };
   const handleAvatarSelect = (newAvatar: string) => {
     setAvatar(newAvatar);

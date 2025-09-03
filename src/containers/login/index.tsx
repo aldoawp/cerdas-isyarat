@@ -10,7 +10,7 @@ import {
   EyeOpenIcon,
   EyeClosedIcon,
 } from '@/components/icons';
-import { User } from '@/types/models';
+import { authenticateUser } from '@/services/users-service';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,32 +20,42 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isShaking, setIsShaking] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     if (!username || !password) {
       setError('Username dan password tidak boleh kosong!');
       setIsShaking(true);
+      setIsLoading(false);
       return;
     }
 
-    // Logika login tetap sama
-    const existingUsersRaw = localStorage.getItem('users');
-    const existingUsers: User[] = existingUsersRaw
-      ? (JSON.parse(existingUsersRaw) as User[])
-      : [];
-    const foundUser = existingUsers.find(
-      (user: User) => user.username.toLowerCase() === username.toLowerCase()
-    );
+    try {
+      // Use Supabase authentication
+      const userData = await authenticateUser(username, password);
 
-    if (foundUser && foundUser.password === password) {
-      localStorage.setItem('loggedInUser', JSON.stringify(foundUser));
+      // Store user data in localStorage for backward compatibility
+      localStorage.setItem(
+        'loggedInUser',
+        JSON.stringify({
+          fullName: userData.username, // Using username as fullName for now
+          username: userData.username,
+          email: userData.email,
+          id: userData.id,
+        })
+      );
+
+      // Redirect to onboarding page
       router.push('/onboarding');
-    } else {
+    } catch {
       setError('Username atau password salah, coba lagi ya!');
       setIsShaking(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -88,11 +98,12 @@ export default function LoginPage() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Username"
+                  placeholder="Username atau Email"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
+                  disabled={isLoading}
                   // Menghilangkan style inline, properti diatur oleh class
-                  className="h-12 w-full rounded-[20px] border-4 border-input-border bg-input-bg p-2 pl-12 text-sm font-bold text-brand-brown-stroke placeholder:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 md:h-14 md:text-base"
+                  className="h-12 w-full rounded-[20px] border-4 border-input-border bg-input-bg p-2 pl-12 text-sm font-bold text-brand-brown-stroke placeholder:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 md:h-14 md:text-base"
                 />
               </div>
               {/* Input Password */}
@@ -105,13 +116,15 @@ export default function LoginPage() {
                   placeholder="Password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
+                  disabled={isLoading}
                   // Menghilangkan style inline
-                  className="h-12 w-full rounded-[20px] border-4 border-input-border bg-input-bg p-2 pl-12 text-sm font-bold text-brand-brown-stroke placeholder:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 md:h-14 md:text-base"
+                  className="h-12 w-full rounded-[20px] border-4 border-input-border bg-input-bg p-2 pl-12 text-sm font-bold text-brand-brown-stroke placeholder:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 md:h-14 md:text-base"
                 />
                 <button
                   type="button"
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 focus:outline-none"
                   onClick={() => setPasswordVisible(!passwordVisible)}
+                  disabled={isLoading}
                 >
                   {passwordVisible ? (
                     <EyeOpenIcon className="size-6" />
@@ -139,10 +152,11 @@ export default function LoginPage() {
             <div className="mt-4 text-center">
               <button
                 type="submit"
+                disabled={isLoading}
                 // Mengganti 'shake' dengan 'animate-shake' dari config
-                className={`w-full rounded-[15px] border-4 border-brand-brown-stroke bg-amber-500 py-3 text-2xl font-bold text-white transition duration-300 hover:bg-yellow-600 active:scale-95 ${isShaking ? 'animate-shake' : ''}`}
+                className={`w-full rounded-[15px] border-4 border-brand-brown-stroke bg-amber-500 py-3 text-2xl font-bold text-white transition duration-300 hover:bg-yellow-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${isShaking ? 'animate-shake' : ''}`}
               >
-                MASUK
+                {isLoading ? 'MEMPROSES...' : 'MASUK'}
               </button>
             </div>
 
