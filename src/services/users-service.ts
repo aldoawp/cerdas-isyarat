@@ -10,12 +10,6 @@ export interface RegisterResult {
   username: string;
 }
 
-export interface LoginUserResult {
-  id: string;
-  email: string;
-  username: string;
-}
-
 export const registerUser = async (
   payload: FormDataState
 ): Promise<RegisterResult> => {

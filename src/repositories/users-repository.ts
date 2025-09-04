@@ -1,4 +1,4 @@
-import { getSupabaseServerClient } from '@/lib/utils/auth-util';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 export interface CreateAuthUserParams {
   email: string;
@@ -10,19 +10,14 @@ export interface InsertUserProfileParams {
   email: string;
   username: string;
   fullName?: string;
-  age?: string;
-}
-
-export interface LoginUserParams {
-  emailOrUsername: string;
-  password: string;
+  age: string;
 }
 
 export const createAuthUser = async ({
   email,
   password,
 }: CreateAuthUserParams) => {
-  const supabase = getSupabaseServerClient();
+  const supabase = await createServerClient();
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
   return data;
@@ -35,16 +30,13 @@ export const insertUserProfile = async ({
   fullName,
   age,
 }: InsertUserProfileParams) => {
-  const supabase = getSupabaseServerClient();
-  const { error } = await supabase.from('users').insert([
-    {
-      user_id: userId,
-      email,
-      username,
-      full_name: fullName ?? undefined,
-      age,
-      password: 'encrypted-by-auth',
-    },
-  ] as any);
+  const supabase = await createServerClient();
+  const { error } = await supabase.from('users').insert({
+    user_id: userId,
+    email,
+    username,
+    full_name: fullName ?? undefined,
+    age,
+  } as any);
   if (error) throw error;
 };

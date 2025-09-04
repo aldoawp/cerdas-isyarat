@@ -14,6 +14,8 @@ import ScoreDisplay from '@/components/tebak-gerakan/score-display';
 import TimerDisplay from '@/components/tebak-gerakan/timer-display';
 import CameraView from '@/components/tebak-gerakan/camera-view';
 import { Movement } from '@/types/models';
+import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import LoadingScreen from '@/components/shared/loading-screen';
 
 const TOTAL_TIME_SECONDS = 20 * 60;
 
@@ -21,6 +23,8 @@ CameraView.displayName = 'CameraView';
 
 export default function TebakGerakanPage() {
   const router = useRouter();
+  const { loading: authLoading } = useRequireAuth();
+  const { isPageLoading } = usePageLoading();
   const videoRef = useRef<HTMLVideoElement | undefined>(undefined);
   const streamRef = useRef<MediaStream | undefined>(undefined);
   const [isCameraReady, setIsCameraReady] = useState(false);
@@ -41,7 +45,7 @@ export default function TebakGerakanPage() {
 
   const handleLeave = () => {
     localStorage.removeItem('tebakGerakanProgress');
-    router.push('/tebak-gerakan');
+    router.push('/onboarding');
   };
 
   const handleCameraDisconnect = useCallback(() => {
@@ -166,6 +170,11 @@ export default function TebakGerakanPage() {
     }
   };
 
+  // Show loading screen while page is loading or checking authentication
+  if (isPageLoading || authLoading) {
+    return <LoadingScreen message="Halaman sedang dimuat..." />;
+  }
+
   if (shuffledMovements.length === 0) {
     return (
       <div className="flex h-screen items-center justify-center bg-mobile-bg bg-cover bg-center md:bg-desktop-bg">
@@ -183,7 +192,7 @@ export default function TebakGerakanPage() {
     <div className="flex min-h-screen flex-col bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
       <FunModal
         isOpen={showPermissionModal}
-        onAction={() => router.push('/tebak-gerakan')}
+        onAction={() => router.push('/onboarding')}
         icon="📸"
         title="Oops, Kamera Belum Siap!"
         message="Kita butuh kameramu untuk bermain! Yuk, kita kembali sebentar untuk mengaktifkan kameranya."
@@ -191,7 +200,7 @@ export default function TebakGerakanPage() {
       />
       <FunModal
         isOpen={showDisconnectedModal}
-        onAction={() => router.push('/tebak-gerakan')}
+        onAction={() => router.push('/onboarding')}
         icon="🔌"
         title="Yah, Kamera Terputus!"
         message="Jangan khawatir, progresmu aman! Yuk kita kembali ke menu utama."

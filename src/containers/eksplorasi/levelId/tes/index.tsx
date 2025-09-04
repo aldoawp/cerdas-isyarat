@@ -10,9 +10,13 @@ import { NavigationButtons } from '@/components/ekplorasi/navigation-button';
 import { ResultsModal } from '@/components/ekplorasi/result-modal';
 import { LeaveConfirmationModal } from '@/components/ekplorasi/leave-confirmation-modals';
 import { useTest } from '@/lib/hooks/use-tests';
+import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import LoadingScreen from '@/components/shared/loading-screen';
 
 export default function TestPage() {
   const params = useParams();
+  const { loading: authLoading } = useRequireAuth();
+  const { isPageLoading } = usePageLoading();
   const levelId = Number(params.levelId);
 
   // Memanggil semua state dan fungsi dari satu tempat!
@@ -33,6 +37,11 @@ export default function TestPage() {
     handleBackToExplore, // [DIUBAH]
     confirmLeave,
   } = useTest(levelId);
+
+  // Show loading screen while page is loading or checking authentication
+  if (isPageLoading || authLoading) {
+    return <LoadingScreen message="Halaman sedang dimuat..." />;
+  }
 
   // Tampilan Loading
   if (!testState || questions.length === 0) {

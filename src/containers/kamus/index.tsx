@@ -12,9 +12,13 @@ import CompactPagination from '@/components/kamus/compact-pagination';
 import { getKamusData } from '@/repositories/kamus-repository';
 import { isCategory, isWord } from '@/lib/utils/utils';
 import { Word, Category, SearchResult } from '@/types/models';
+import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import LoadingScreen from '@/components/shared/loading-screen';
 
 export default function KamusPage() {
   const router = useRouter();
+  const { loading: authLoading } = useRequireAuth();
+  const { isPageLoading } = usePageLoading();
   const [view, setView] = useState<'category' | 'wordList' | 'search'>(
     'category'
   );
@@ -112,7 +116,7 @@ export default function KamusPage() {
     if (view === 'wordList' || view === 'search') {
       handleNavigateToCategories();
     } else {
-      router.back();
+      router.push('/onboarding');
     }
   };
 
@@ -142,6 +146,11 @@ export default function KamusPage() {
   const selectedCategory = categories.find(
     cat => cat.id === selectedCategoryId
   );
+
+  // Show loading screen while page is loading or checking authentication
+  if (isPageLoading || authLoading) {
+    return <LoadingScreen message="Memeriksa autentikasi..." />;
+  }
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">

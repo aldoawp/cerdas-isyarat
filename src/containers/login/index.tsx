@@ -10,42 +10,76 @@ import {
   EyeOpenIcon,
   EyeClosedIcon,
 } from '@/components/icons';
-import { User } from '@/types/models';
+import { useProtectedRoute, usePageLoading } from '@/lib/contexts/auth-context';
+import { createClient } from '@/lib/supabase/client';
+import LoadingScreen from '@/components/shared/loading-screen';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { loading: authLoading } = useProtectedRoute();
+  const { isPageLoading } = usePageLoading();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isShaking, setIsShaking] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     if (!username || !password) {
       setError('Username dan password tidak boleh kosong!');
       setIsShaking(true);
+      setIsLoading(false);
       return;
     }
 
-    // Logika login tetap sama
-    const existingUsersRaw = localStorage.getItem('users');
-    const existingUsers: User[] = existingUsersRaw
-      ? (JSON.parse(existingUsersRaw) as User[])
-      : [];
-    const foundUser = existingUsers.find(
-      (user: User) => user.username.toLowerCase() === username.toLowerCase()
-    );
+    try {
+      const supabase = createClient();
 
-    if (foundUser && foundUser.password === password) {
-      localStorage.setItem('loggedInUser', JSON.stringify(foundUser));
-      router.push('/onboarding');
-    } else {
+      // First, try to find user by email or username in the users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('email, username, full_name')
+        .or(`email.eq.${username},username.eq.${username}`)
+        .single();
+
+      if (userError || !userData) {
+        throw new Error('User not found');
+      }
+
+      // Use the email for Supabase Auth login
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: userData.email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Store user data in localStorage for backward compatibility
+        localStorage.setItem(
+          'loggedInUser',
+          JSON.stringify({
+            fullName: userData.full_name || userData.username, // Use full_name if available, fallback to username
+            username: userData.username,
+            email: userData.email,
+            id: data.user.id,
+          })
+        );
+
+        // Redirect to onboarding page
+        router.push('/onboarding');
+      }
+    } catch {
       setError('Username atau password salah, coba lagi ya!');
       setIsShaking(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -55,6 +89,11 @@ export default function LoginPage() {
       return () => clearTimeout(timer);
     }
   }, [isShaking]);
+
+  // Show loading screen while page is loading or checking authentication
+  if (isPageLoading || authLoading) {
+    return <LoadingScreen message="Halaman sedang dimuat..." />;
+  }
 
   return (
     // Menambahkan font-sans (Baloo 2) sebagai font default untuk seluruh halaman
@@ -88,11 +127,12 @@ export default function LoginPage() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Username"
+                  placeholder="Username atau Email"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
+                  disabled={isLoading}
                   // Menghilangkan style inline, properti diatur oleh class
-                  className="h-12 w-full rounded-[20px] border-4 border-input-border bg-input-bg p-2 pl-12 text-sm font-bold text-brand-brown-stroke placeholder:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 md:h-14 md:text-base"
+                  className="h-12 w-full rounded-[20px] border-4 border-input-border bg-input-bg p-2 pl-12 text-sm font-bold text-brand-brown-stroke placeholder:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 md:h-14 md:text-base"
                 />
               </div>
               {/* Input Password */}
@@ -105,13 +145,15 @@ export default function LoginPage() {
                   placeholder="Password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
+                  disabled={isLoading}
                   // Menghilangkan style inline
-                  className="h-12 w-full rounded-[20px] border-4 border-input-border bg-input-bg p-2 pl-12 text-sm font-bold text-brand-brown-stroke placeholder:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 md:h-14 md:text-base"
+                  className="h-12 w-full rounded-[20px] border-4 border-input-border bg-input-bg p-2 pl-12 text-sm font-bold text-brand-brown-stroke placeholder:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 md:h-14 md:text-base"
                 />
                 <button
                   type="button"
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 focus:outline-none"
                   onClick={() => setPasswordVisible(!passwordVisible)}
+                  disabled={isLoading}
                 >
                   {passwordVisible ? (
                     <EyeOpenIcon className="size-6" />
@@ -139,10 +181,11 @@ export default function LoginPage() {
             <div className="mt-4 text-center">
               <button
                 type="submit"
+                disabled={isLoading}
                 // Mengganti 'shake' dengan 'animate-shake' dari config
-                className={`w-full rounded-[15px] border-4 border-brand-brown-stroke bg-amber-500 py-3 text-2xl font-bold text-white transition duration-300 hover:bg-yellow-600 active:scale-95 ${isShaking ? 'animate-shake' : ''}`}
+                className={`w-full rounded-[15px] border-4 border-brand-brown-stroke bg-amber-500 py-3 text-2xl font-bold text-white transition duration-300 hover:bg-yellow-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${isShaking ? 'animate-shake' : ''}`}
               >
-                MASUK
+                {isLoading ? 'MEMPROSES...' : 'MASUK'}
               </button>
             </div>
 

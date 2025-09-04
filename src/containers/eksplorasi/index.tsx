@@ -16,6 +16,8 @@ import {
   getProgress as getProgressFromLocalStorage,
   resetLevelProgress,
 } from '@/lib/utils/progress-manager';
+import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import LoadingScreen from '@/components/shared/loading-screen';
 
 // --- TIPE DATA ---
 type LevelStatus = 'locked' | 'unlocked' | 'completed';
@@ -305,6 +307,8 @@ const processLevels = (
 // --- KOMPONEN UTAMA HALAMAN EKSPLORASI ---
 export default function EksplorasiPage() {
   const router = useRouter();
+  const { loading: authLoading } = useRequireAuth();
+  const { isPageLoading } = usePageLoading();
   const [levels, setLevels] = useState<Level[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [studyModalState, setStudyModalState] = useState<{
@@ -386,6 +390,11 @@ export default function EksplorasiPage() {
     }
     setNoLivesModalState({ isOpen: false, level: undefined });
   };
+
+  // Show loading screen while page is loading or checking authentication
+  if (isPageLoading || authLoading) {
+    return <LoadingScreen message="Halaman sedang dimuat..." />;
+  }
 
   return (
     <>
