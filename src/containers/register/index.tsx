@@ -12,6 +12,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import SuccessModal from '@/components/register/success-modal';
 import { FormDataState, FormErrors } from '@/types/forms';
+import { useProtectedRoute, usePageLoading } from '@/lib/contexts/auth-context';
+import LoadingScreen from '@/components/shared/loading-screen';
 
 type RegisterPageProps = {
   onRegister?: (form: FormDataState) => Promise<unknown>;
@@ -19,6 +21,8 @@ type RegisterPageProps = {
 
 export default function RegisterPage({ onRegister }: RegisterPageProps) {
   const router = useRouter();
+  const { loading: authLoading } = useProtectedRoute();
+  const { isPageLoading } = usePageLoading();
 
   const [formData, setFormData] = useState<FormDataState>({
     fullName: '',
@@ -97,6 +101,11 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
       return () => clearTimeout(timer);
     }
   }, [isShaking]);
+
+  // Show loading screen while page is loading or checking authentication
+  if (isPageLoading || authLoading) {
+    return <LoadingScreen message="Halaman sedang dimuat..." />;
+  }
 
   const formFields: {
     name: keyof FormDataState;

@@ -8,9 +8,13 @@ import MusicPlayer from '@/components/shared/musicplayer/musicplayer';
 import Image from 'next/image';
 import { CameraIcon, RefreshIcon, CloseIcon } from '@/components/icons';
 import InstructionCard from '@/components/intro-tebak-gerakan/instruction-card';
+import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import LoadingScreen from '@/components/shared/loading-screen';
 
 export default function IntroTebakGerakanPage() {
   const router = useRouter();
+  const { loading: authLoading } = useRequireAuth();
+  const { isPageLoading } = usePageLoading();
   const videoRef = useRef<HTMLVideoElement | undefined>(undefined);
   const streamRef = useRef<MediaStream | undefined>(undefined);
 
@@ -164,6 +168,11 @@ export default function IntroTebakGerakanPage() {
   const handleBack = () => {
     router.push('/onboarding');
   };
+
+  // Show loading screen while page is loading or checking authentication
+  if (isPageLoading || authLoading) {
+    return <LoadingScreen message="Halaman sedang dimuat..." />;
+  }
 
   return (
     <div className="min-h-screen bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import UserDetail from '@/components/shared/userinfo';
 import Image from 'next/image';
 import FunBookIcon from '@/components/icons/fun-book-icon';
@@ -9,16 +8,32 @@ import FunGamepadIcon from '@/components/icons/fun-gamepad-icon';
 import FunSearchIcon from '@/components/icons/fun-search-icon';
 import useScreenSize from '@/lib/hooks/use-screen-size';
 import MenuButton from '@/components/onboarding/menu-button';
+import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import LoadingScreen from '@/components/shared/loading-screen';
+import { getUserData } from '@/components/shared/userinfo';
 
 export default function OnboardingPage() {
   const [firstName, setFirstName] = useState('');
-  const router = useRouter();
   const screenSize = useScreenSize();
+  const { loading: authLoading } = useRequireAuth();
+  const { isPageLoading } = usePageLoading();
 
   useEffect(() => {
-    // Hapus referensi autentikasi localStorage
-    setFirstName('Kamu');
-  }, [router]);
+    // Get user's actual name from localStorage
+    const userData = getUserData();
+    if (userData && userData.fullName) {
+      // Extract only the first name (first word)
+      const firstWord = userData.fullName.split(' ')[0];
+      setFirstName(firstWord);
+    } else {
+      setFirstName('Kamu');
+    }
+  }, []);
+
+  // Show loading screen while page is loading or checking authentication
+  if (isPageLoading || authLoading) {
+    return <LoadingScreen message="Halaman sedang dimuat..." />;
+  }
 
   if (!firstName) {
     return (
@@ -62,7 +77,7 @@ export default function OnboardingPage() {
               delay="0.3s"
             />
             <MenuButton
-              href="/tebak-gerakan"
+              href="/intro-tebak-gerakan"
               icon={<FunGamepadIcon className="size-12 md:size-14" />}
               title="Tebak Gerakan"
               colors={{

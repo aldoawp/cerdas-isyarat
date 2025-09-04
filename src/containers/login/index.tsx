@@ -10,10 +10,14 @@ import {
   EyeOpenIcon,
   EyeClosedIcon,
 } from '@/components/icons';
-import { authenticateUser } from '@/services/users-service';
+import { useProtectedRoute, usePageLoading } from '@/lib/contexts/auth-context';
+import { createClient } from '@/lib/supabase/client';
+import LoadingScreen from '@/components/shared/loading-screen';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { loading: authLoading } = useProtectedRoute();
+  const { isPageLoading } = usePageLoading();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -35,22 +39,42 @@ export default function LoginPage() {
     }
 
     try {
-      // Use Supabase authentication
-      const userData = await authenticateUser(username, password);
+      const supabase = createClient();
 
-      // Store user data in localStorage for backward compatibility
-      localStorage.setItem(
-        'loggedInUser',
-        JSON.stringify({
-          fullName: userData.username, // Using username as fullName for now
-          username: userData.username,
-          email: userData.email,
-          id: userData.id,
-        })
-      );
+      // First, try to find user by email or username in the users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('email, username, full_name')
+        .or(`email.eq.${username},username.eq.${username}`)
+        .single();
 
-      // Redirect to onboarding page
-      router.push('/onboarding');
+      if (userError || !userData) {
+        throw new Error('User not found');
+      }
+
+      // Use the email for Supabase Auth login
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: userData.email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Store user data in localStorage for backward compatibility
+        localStorage.setItem(
+          'loggedInUser',
+          JSON.stringify({
+            fullName: userData.full_name || userData.username, // Use full_name if available, fallback to username
+            username: userData.username,
+            email: userData.email,
+            id: data.user.id,
+          })
+        );
+
+        // Redirect to onboarding page
+        router.push('/onboarding');
+      }
     } catch {
       setError('Username atau password salah, coba lagi ya!');
       setIsShaking(true);
@@ -65,6 +89,11 @@ export default function LoginPage() {
       return () => clearTimeout(timer);
     }
   }, [isShaking]);
+
+  // Show loading screen while page is loading or checking authentication
+  if (isPageLoading || authLoading) {
+    return <LoadingScreen message="Halaman sedang dimuat..." />;
+  }
 
   return (
     // Menambahkan font-sans (Baloo 2) sebagai font default untuk seluruh halaman

@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { refillLives } from '@/components/shared/userinfo';
 import BackButton from '../../../../components/shared/backbutton/backbutton'; // [DITAMBAHKAN] Impor komponen BackButton
+import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import LoadingScreen from '@/components/shared/loading-screen';
 
 // --- Tipe Data & Logika Progress ---
 interface MateriItem {
@@ -229,7 +231,9 @@ const ConfirmationModal = ({
 export default function MateriPage() {
   const router = useRouter();
   const params = useParams();
-  const levelId = Number(params.levelId);
+  const { loading: authLoading } = useRequireAuth();
+  const { isPageLoading } = usePageLoading();
+  const levelId = Number.parseInt(params.levelId as string);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -272,6 +276,11 @@ export default function MateriPage() {
   const handlePrev = useCallback(() => {
     setCurrentIndex(prev => Math.max(0, prev - 1));
   }, []);
+
+  // Show loading screen while page is loading or checking authentication
+  if (isPageLoading || authLoading) {
+    return <LoadingScreen message="Halaman sedang dimuat..." />;
+  }
 
   if (isLoading)
     return (
