@@ -1,90 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image'; // [DIPERBAIKI] Impor komponen Image dari Next.js
+import Image from 'next/image';
 import clsx from 'clsx';
 import { useAuth } from '@/lib/contexts/auth-context';
+import { useUserProgress, avatars } from '@/lib/hooks/use-user-progress';
 
-// --- Tipe Data ---
-type LevelProgress = { progress: number; lastIndex: number };
-type UserProgress = {
-  completedLevelIds: number[];
-  learningProgress: { [levelId: number]: LevelProgress };
-};
-type UserData = { fullName: string; lives?: number; avatar?: string };
+// Export helper functions for backward compatibility
 
-// --- LOGIKA HELPER ---
-const USER_KEY = 'loggedInUser';
-const PROGRESS_KEY = 'userBisindoProgress';
-
-const getProgress = (): UserProgress => {
-  if (globalThis.window === undefined)
-    return { completedLevelIds: [], learningProgress: {} };
-  try {
-    const saved = localStorage.getItem(PROGRESS_KEY);
-    return saved
-      ? JSON.parse(saved)
-      : { completedLevelIds: [], learningProgress: {} };
-  } catch {
-    return { completedLevelIds: [], learningProgress: {} };
-  }
-};
-
-// [DIPERBAIKI] Menggunakan 'undefined' sebagai ganti 'null'
-export const getUserData = (): UserData | undefined => {
-  if (globalThis.window === undefined) return undefined;
-  try {
-    const data = localStorage.getItem(USER_KEY);
-    return data ? JSON.parse(data) : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-export const decreaseLife = () => {
-  const userData = getUserData();
-  if (!userData) return;
-  const currentLives = userData.lives ?? 3;
-  if (currentLives > 0) {
-    userData.lives = currentLives - 1;
-    localStorage.setItem(USER_KEY, JSON.stringify(userData));
-    globalThis.dispatchEvent(new Event('userStateChange'));
-  }
-};
-
-export const refillLives = () => {
-  const userData = getUserData();
-  if (!userData) return;
-  if ((userData.lives ?? 3) < 3) {
-    userData.lives = 3;
-    localStorage.setItem(USER_KEY, JSON.stringify(userData));
-    globalThis.dispatchEvent(new Event('userStateChange'));
-    // [DIPERBAIKI] Menghapus console.log
-  }
-};
-
-export const completeLevel = (levelId: number) => {
-  if (globalThis.window === undefined) return;
-  const progress = getProgress();
-  if (!progress.completedLevelIds.includes(levelId)) {
-    progress.completedLevelIds.push(levelId);
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
-    globalThis.dispatchEvent(new Event('userStateChange'));
-  }
-};
-
-// --- DATA DUMMY & KONFIGURASI ---
-const avatars = [
-  'https://i.pinimg.com/originals/ed/f7/96/edf7963313c62ae35796eed89df14852.jpg',
-  'https://st5.depositphotos.com/72771704/75678/v/450/depositphotos_756786120-stock-illustration-hamster-vector-illustration-cartoon-clipart.jpg',
-  'https://cdn.pixabay.com/photo/2022/04/05/01/51/bear-7112623_1280.png',
-  'https://www.clipartmax.com/png/middle/4-41019_panda-clip-art-clipart-gambar-animasi-hewan-lucu.png',
-  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRBG5EunaflZSZEb88XZFumJtFUryDiT56wrw&s',
-];
-
-// --- DEFINISI TIPE PROPS ---
-type UserInfoProps = {
+// --- TYPE DEFINITIONS ---
+interface UserInfoProps {
   fullName: string;
   level: number;
   xp: number;
@@ -92,11 +18,16 @@ type UserInfoProps = {
   avatar: string;
   onAvatarClick: () => void;
   onLogoutClick: () => void;
-};
-type DisplayMode = 'card' | 'sidebar' | 'dropdown';
-type UserDetailProps = { mode?: DisplayMode; className?: string };
+}
 
-// --- KOMPONEN IKON ---
+type DisplayMode = 'card' | 'sidebar' | 'dropdown';
+
+interface UserDetailProps {
+  mode?: DisplayMode;
+  className?: string;
+}
+
+// --- ICON COMPONENTS ---
 const HeartIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -172,7 +103,7 @@ const ChevronDownIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-// --- KOMPONEN MODAL ---
+// --- MODAL COMPONENTS ---
 const AvatarModal = ({
   isOpen,
   onClose,
@@ -259,7 +190,7 @@ const LogoutModal = ({
   );
 };
 
-// --- KONTEN UI (DIPISAH SESUAI MODE) ---
+// --- UI CONTENT COMPONENTS ---
 const UserInfoSidebarContent = ({
   fullName,
   level,
@@ -511,7 +442,14 @@ const UserInfoDropdownContent = ({
   );
 };
 
-// --- KOMPONEN UTAMA ---
+// --- MAIN COMPONENT ---
+/**
+ * UserDetail component displays user information in different modes (card, sidebar, dropdown)
+ * Uses Supabase backend for user progress data and localStorage for user profile data
+ *
+ * @param mode - Display mode: 'card', 'sidebar', or 'dropdown'
+ * @param className - Additional CSS classes
+ */
 export default function UserDetail({
   mode = 'card',
   className = '',
@@ -519,43 +457,19 @@ export default function UserDetail({
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isClient, setIsClient] = useState(false);
-  const [fullName, setFullName] = useState('Pengguna');
-  const [level, setLevel] = useState(1);
-  const [xp, setXp] = useState(0);
-  const [lives, setLives] = useState(3);
-  const [avatar, setAvatar] = useState(avatars[0]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-  const loadData = useCallback(() => {
-    const userData = getUserData();
-    const userProgress = getProgress();
-    if (userData) {
-      setFullName(userData.fullName);
-      setLives(userData.lives ?? 3);
-      setAvatar(userData.avatar || avatars[0]);
-    }
-    const highestCompleted =
-      userProgress.completedLevelIds.length > 0
-        ? Math.max(...userProgress.completedLevelIds)
-        : 0;
-    const currentLevel = highestCompleted + 1;
-    setLevel(currentLevel);
-    const currentLevelProgress = userProgress.learningProgress[currentLevel];
-    setXp(currentLevelProgress ? currentLevelProgress.progress : 0);
-  }, []);
+  const { signOut } = useAuth();
+  const { progressData, userProfile, loading, error, updateAvatar } =
+    useUserProgress();
+
   useEffect(() => {
     setIsClient(true);
-    loadData();
-    globalThis.addEventListener('userStateChange', loadData);
-    window.addEventListener('focus', loadData);
-    return () => {
-      globalThis.removeEventListener('userStateChange', loadData);
-      window.removeEventListener('focus', loadData);
-    };
-  }, [loadData]);
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -565,78 +479,73 @@ export default function UserDetail({
         setIsDropdownOpen(false);
       }
     };
-    if (isDropdownOpen)
+    if (isDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+    }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isDropdownOpen]);
-  const { signOut } = useAuth();
 
   const confirmLogout = async () => {
     try {
-      // Call Supabase logout through auth context
       await signOut();
-
-      // Clear localStorage data
-      localStorage.removeItem(USER_KEY);
-      localStorage.removeItem(PROGRESS_KEY);
-
-      // Note: The auth context will handle the redirect automatically
+      // Auth context will handle redirect automatically
     } catch {
-      // Even if logout fails, clear localStorage and redirect to login page for security
-      localStorage.removeItem(USER_KEY);
-      localStorage.removeItem(PROGRESS_KEY);
+      // Even if logout fails, redirect to login page for security
       router.push('/login');
     }
   };
+
   const handleAvatarSelect = (newAvatar: string) => {
-    setAvatar(newAvatar);
-    const userData = getUserData();
-    if (userData) {
-      userData.avatar = newAvatar;
-      localStorage.setItem(USER_KEY, JSON.stringify(userData));
-    }
+    updateAvatar(newAvatar);
     setIsAvatarModalOpen(false);
   };
+
   const userInfoProps: UserInfoProps = {
-    fullName,
-    level,
-    xp,
-    lives,
-    avatar,
+    fullName: userProfile.fullName,
+    level: progressData.explorationLevel,
+    xp: progressData.xp,
+    lives: userProfile.lives ?? 3,
+    avatar: userProfile.avatar || avatars[0],
     onAvatarClick: () => setIsAvatarModalOpen(true),
     onLogoutClick: () => setIsLogoutModalOpen(true),
   };
 
-  if (!isClient) return <div className="size-14 bg-transparent"></div>;
+  if (!isClient || loading) {
+    return <div className="size-14 bg-transparent"></div>;
+  }
+
+  if (error) {
+    console.error('User progress error:', error);
+    // Still render the component with fallback data
+  }
 
   return (
     <div className={className}>
-      {' '}
       <AvatarModal
         isOpen={isAvatarModalOpen}
         onClose={() => setIsAvatarModalOpen(false)}
         onSelect={handleAvatarSelect}
-      />{' '}
+      />
       <LogoutModal
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}
         onConfirm={confirmLogout}
-      />{' '}
+      />
+
       {mode === 'card' && (
         <div className="w-full max-w-md rounded-2xl border-4 border-yellow-400/80 bg-form-bg/90 shadow-lg backdrop-blur-sm">
-          {' '}
-          <UserInfoDesktopContent {...userInfoProps} />{' '}
+          <UserInfoDesktopContent {...userInfoProps} />
         </div>
-      )}{' '}
+      )}
+
       {mode === 'sidebar' && (
         <div>
-          {' '}
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="relative flex size-14 items-center justify-center rounded-full border-4 border-input-border bg-amber-500 shadow-xl transition-transform hover:scale-110 active:scale-95"
           >
             <Image
-              src={avatar}
+              src={userInfoProps.avatar}
               alt="Buka Menu"
               fill
               className="rounded-full object-cover p-0.5"
@@ -644,15 +553,20 @@ export default function UserDetail({
             <div className="absolute bottom-0 right-0 grid size-5 place-items-center rounded-full border-2 border-yellow-400 bg-form-bg">
               <MenuIcon className="size-3 text-brand-yellow" />
             </div>
-          </button>{' '}
+          </button>
+
           <div
-            className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity ${isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+            className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity ${
+              isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+            }`}
             onClick={() => setIsSidebarOpen(false)}
-          ></div>{' '}
+          />
+
           <div
-            className={`fixed left-0 top-0 z-50 h-full w-72 max-w-[80vw] transform border-r-4 border-yellow-400/80 bg-form-bg transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            className={`fixed left-0 top-0 z-50 h-full w-72 max-w-[80vw] transform border-r-4 border-yellow-400/80 bg-form-bg transition-transform duration-300 ease-in-out ${
+              isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
           >
-            {' '}
             <div className="relative flex h-full flex-col">
               <button
                 onClick={() => setIsSidebarOpen(false)}
@@ -661,36 +575,49 @@ export default function UserDetail({
                 <CloseIcon className="size-7" />
               </button>
               <UserInfoSidebarContent {...userInfoProps} />
-            </div>{' '}
-          </div>{' '}
+            </div>
+          </div>
         </div>
-      )}{' '}
+      )}
+
       {mode === 'dropdown' && (
         <div className="relative" ref={dropdownRef}>
-          {' '}
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="relative flex size-14 items-center justify-center rounded-full border-4 border-input-border bg-amber-500 shadow-xl transition-transform hover:scale-110 active:scale-95"
           >
             <Image
-              src={avatar}
+              src={userInfoProps.avatar}
               alt="Buka Menu"
               fill
               className="rounded-full object-cover p-0.5"
             />
             <div className="absolute bottom-0 right-0 grid size-5 place-items-center rounded-full border-2 border-yellow-400 bg-form-bg">
               <ChevronDownIcon
-                className={`size-3 text-brand-yellow transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+                className={`size-3 text-brand-yellow transition-transform ${
+                  isDropdownOpen ? 'rotate-180' : ''
+                }`}
               />
             </div>
-          </button>{' '}
+          </button>
+
           <div
-            className={`absolute right-0 top-full z-50 mt-2 origin-top-right transform transition-all duration-200 ${isDropdownOpen ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0'}`}
+            className={`absolute right-0 top-full z-50 mt-2 origin-top-right transform transition-all duration-200 ${
+              isDropdownOpen
+                ? 'scale-100 opacity-100'
+                : 'pointer-events-none scale-95 opacity-0'
+            }`}
           >
             <UserInfoDropdownContent {...userInfoProps} />
-          </div>{' '}
+          </div>
         </div>
-      )}{' '}
+      )}
     </div>
   );
 }
+
+export {
+  getUserData,
+  updateUserData,
+  avatars,
+} from '@/lib/hooks/use-user-progress';

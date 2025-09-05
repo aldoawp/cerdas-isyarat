@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
-import { refillLives } from '@/components/shared/userinfo';
+import { useUserProgress } from '@/lib/hooks/use-user-progress';
 import BackButton from '../../../../components/shared/backbutton/backbutton'; // [DITAMBAHKAN] Impor komponen BackButton
 import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
@@ -264,6 +264,8 @@ export default function MateriPage() {
       : 0;
   const isLastMateri = currentIndex === materials.length - 1;
 
+  const { refillLives } = useUserProgress();
+
   const handleNext = useCallback(() => {
     if (isLastMateri) {
       refillLives();
@@ -271,7 +273,7 @@ export default function MateriPage() {
     } else {
       setCurrentIndex(prev => prev + 1);
     }
-  }, [isLastMateri, router]);
+  }, [isLastMateri, router, refillLives]);
 
   const handlePrev = useCallback(() => {
     setCurrentIndex(prev => Math.max(0, prev - 1));

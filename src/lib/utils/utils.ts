@@ -1,4 +1,4 @@
-import { SearchResult, Category, Word } from '@/types/models';
+import { SearchResult, Category, Word } from '@/types/dictionary';
 
 const isCategory = (item: SearchResult): item is Category => {
   return 'imageUrl' in item;
