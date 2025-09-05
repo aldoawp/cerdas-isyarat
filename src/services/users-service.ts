@@ -2,6 +2,7 @@ import {
   createAuthUser,
   insertUserProfile,
 } from '@/repositories/users-repository';
+import { createUserProgressServer } from '@/repositories/users-progress-repository-server';
 import { FormDataState } from '@/types/forms';
 
 export interface RegisterResult {
@@ -13,22 +14,55 @@ export interface RegisterResult {
 export const registerUser = async (
   payload: FormDataState
 ): Promise<RegisterResult> => {
-  const auth = await createAuthUser({
-    email: payload.email,
-    password: payload.password,
-  });
-  const userId = auth.user?.id;
-  if (!userId) {
-    throw new Error('Failed to create auth user: missing user id');
+  try {
+    // Create authentication user
+    const auth = await createAuthUser({
+      email: payload.email,
+      password: payload.password,
+    });
+    const userId = auth.user?.id;
+    if (!userId) {
+      throw new Error('Failed to create auth user: missing user id');
+    }
+
+    // Insert user profile into users table
+    await insertUserProfile({
+      userId,
+      email: payload.email,
+      username: payload.username,
+      fullName: payload.fullName,
+      age: payload.age,
+    });
+
+    // Initialize user progress with default values
+    const userProgress = await createUserProgressServer({
+      userId,
+      explorationLevel: 1,
+      explorationProgress: 0,
+      guessingChallengeScore: 0,
+    });
+
+    // Verify that user progress was created successfully
+    if (!userProgress) {
+      throw new Error('Failed to initialize user progress');
+    }
+
+    console.log('User registration completed successfully:', {
+      userId,
+      email: payload.email,
+      username: payload.username,
+      progressId: userProgress.progress_id,
+    });
+
+    return { userId, email: payload.email, username: payload.username };
+  } catch (error) {
+    // Log the error for debugging
+    console.error('Registration error:', error);
+
+    // Re-throw with a more user-friendly message if needed
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Registration failed. Please try again.');
   }
-
-  await insertUserProfile({
-    userId,
-    email: payload.email,
-    username: payload.username,
-    fullName: payload.fullName,
-    age: payload.age,
-  });
-
-  return { userId, email: payload.email, username: payload.username };
 };

@@ -28,23 +28,6 @@ export interface MateriItem {
   exampleSentence: string;
 }
 
-// Types for Kamus Page
-
-export interface Category {
-  id: string;
-  name: string;
-  imageUrl: string;
-}
-
-export interface Word {
-  id: number;
-  name: string;
-  category: string;
-  gifUrl: string;
-}
-
-export type SearchResult = Category | Word;
-
 // Types for Ekplorasi Page
 
 export type QuestionMode = 'fill-in-the-blank' | 'multiple-choice-image';

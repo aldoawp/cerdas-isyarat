@@ -2,16 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'; // [DIPERBAIKI] Tambahkan 'useMemo'
 import { useRouter } from 'next/navigation';
-import {
-  decreaseLife,
-  getUserData,
-  completeLevel,
-} from '@/components/shared/userinfo';
+import { useUserProgress } from './use-user-progress';
 import { testBank, TEST_DURATION_MS } from '@/dummy/test-bank';
 import { TestState } from '@/types/models';
 
 export const useTest = (levelId: number) => {
   const router = useRouter();
+  const { userProfile, decreaseLife, completeLevelAction } = useUserProgress();
+
   // [DIPERBAIKI] Gunakan useMemo untuk menstabilkan referensi 'questions'
   const questions = useMemo(() => testBank[levelId] || [], [levelId]);
 
@@ -20,12 +18,6 @@ export const useTest = (levelId: number) => {
   const [showResults, setShowResults] = useState(false);
   const [finalScore, setFinalScore] = useState({ score: 0, correct: 0 });
   const [isLeaving, setIsLeaving] = useState(false);
-  const [userLives, setUserLives] = useState(3);
-
-  const loadLives = useCallback(() => {
-    const userData = getUserData();
-    setUserLives(userData?.lives ?? 3);
-  }, []);
 
   useEffect(() => {
     const savedStateRaw = localStorage.getItem(`testState_level_${levelId}`);
@@ -39,10 +31,7 @@ export const useTest = (levelId: number) => {
             startTime: Date.now(),
           }
     );
-    loadLives();
-    globalThis.addEventListener('userStateChange', loadLives);
-    return () => globalThis.removeEventListener('userStateChange', loadLives);
-  }, [levelId, loadLives]);
+  }, [levelId]);
 
   const calculateAndFinalize = useCallback(() => {
     if (!testState) return;
@@ -127,7 +116,7 @@ export const useTest = (levelId: number) => {
   };
 
   const handleNextLevel = () => {
-    completeLevel(levelId);
+    completeLevelAction(levelId);
     router.push('/eksplorasi');
   };
 
@@ -148,7 +137,7 @@ export const useTest = (levelId: number) => {
     showResults,
     finalScore,
     isLeaving,
-    userLives,
+    userLives: userProfile.lives ?? 3,
     setIsLeaving,
     handleAnswerChange,
     navigateQuestion,

@@ -9,43 +9,42 @@ import MusicPlayer from '@/components/shared/musicplayer/musicplayer';
 import { SearchIcon, CloseIcon } from '@/components/icons';
 import Breadcrumb from '@/components/kamus/breadcrumb';
 import CompactPagination from '@/components/kamus/compact-pagination';
-import { getKamusData } from '@/repositories/kamus-repository';
 import { isCategory, isWord } from '@/lib/utils/utils';
-import { Word, Category, SearchResult } from '@/types/models';
+import {
+  Word,
+  Category,
+  SearchResult,
+  DictionaryData,
+} from '@/types/dictionary';
 import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
 
-export default function KamusPage() {
+interface KamusPageProps {
+  dictionaryData: DictionaryData;
+}
+
+export default function KamusPage({ dictionaryData }: KamusPageProps) {
   const router = useRouter();
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
   const [view, setView] = useState<'category' | 'wordList' | 'search'>(
     'category'
   );
-  const [allWords, setAllWords] = useState<Word[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [displayedContent, setDisplayedContent] = useState<SearchResult[]>([]);
-  const [filteredContent, setFilteredContent] = useState<SearchResult[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [allWords] = useState<Word[]>(dictionaryData.words);
+  const [categories] = useState<Category[]>(dictionaryData.categories);
+  const [displayedContent, setDisplayedContent] = useState<SearchResult[]>(
+    dictionaryData.categories
+  );
+  const [filteredContent, setFilteredContent] = useState<SearchResult[]>(
+    dictionaryData.categories
+  );
+  const [isLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [pageTitle, setPageTitle] = useState('Kamus BISINDO');
   const [selectedWord, setSelectedWord] = useState<Word | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;
-
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoading(true);
-      const { categories, words } = await getKamusData();
-      setAllWords(words);
-      setCategories(categories);
-      setDisplayedContent(categories);
-      setFilteredContent(categories);
-      setIsLoading(false);
-    };
-    loadInitialData();
-  }, []);
 
   // Filter dan search logic
   useEffect(() => {
