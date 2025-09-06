@@ -1,5 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
-import { PaginationProps } from '@/types/props';
+import { PaginationProps } from '@/types';
 import React from 'react';
 
 const CompactPagination: React.FC<PaginationProps> = ({

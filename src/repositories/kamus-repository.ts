@@ -1,7 +1,11 @@
 import { createClient } from '@/lib/supabase/client';
-import { Category, Word, DictionaryData } from '@/types/dictionary';
+import {
+  DictionaryCategory,
+  DictionaryWord,
+  DictionarySearchResult,
+} from '@/types';
 
-const getKamusData = async (): Promise<DictionaryData> => {
+const getKamusData = async (): Promise<DictionarySearchResult> => {
   const supabase = createClient();
 
   try {
@@ -56,23 +60,34 @@ const getKamusData = async (): Promise<DictionaryData> => {
     }
 
     // Transform categories data
-    const categories: Category[] = (categoriesData || []).map((cat: any) => ({
-      id: cat.category_id,
-      name: cat.category,
-      imageUrl: cat.assets?.url || '/images/default-category.png',
-    }));
+    const categories: DictionaryCategory[] = (categoriesData || []).map(
+      (cat: any) => ({
+        id: cat.category_id,
+        name: cat.category,
+        thumbnail: cat.assets?.url || '/images/default-category.png',
+        order: 0,
+        wordCount: 0,
+        created_at: cat.created_at,
+        updated_at: cat.updated_at,
+      })
+    );
 
     // Transform words data
-    const words: Word[] = (detailsData || []).map((detail: any) => ({
+    const words: DictionaryWord[] = (detailsData || []).map((detail: any) => ({
       id: detail.detail_id,
-      name: detail.title,
-      category: detail.category_id,
+      title: detail.title,
       description: detail.description,
-      gifUrl: detail.assets_video?.url || '/images/default-video.gif',
-      thumbnailUrl: detail.assets_thumbnail?.url || undefined,
+      categoryId: detail.category_id,
+      categoryName: '',
+      thumbnail: detail.assets_thumbnail?.url,
+      videoUrl: detail.assets_video?.url,
+      gifUrl: detail.assets_video?.url,
+      order: 0,
+      created_at: detail.created_at,
+      updated_at: detail.updated_at,
     }));
 
-    return { categories, words };
+    return { categories, words, totalResults: words.length };
   } catch (error) {
     console.error('Error fetching kamus data:', error);
     throw error;

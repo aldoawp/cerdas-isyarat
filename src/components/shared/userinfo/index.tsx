@@ -463,8 +463,13 @@ export default function UserDetail({
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const { signOut } = useAuth();
-  const { progressData, userProfile, loading, error, updateAvatar } =
-    useUserProgress();
+  const {
+    progressData,
+    userProfile,
+    loading,
+    error: _error,
+    updateAvatar,
+  } = useUserProgress();
 
   useEffect(() => {
     setIsClient(true);
@@ -514,10 +519,7 @@ export default function UserDetail({
     return <div className="size-14 bg-transparent"></div>;
   }
 
-  if (error) {
-    console.error('User progress error:', error);
-    // Still render the component with fallback data
-  }
+  // Handle error silently - component will render with fallback data
 
   return (
     <div className={className}>

@@ -5,7 +5,7 @@ import {
   checkUserExistsClient,
 } from '@/repositories/users-repository';
 import { createUserProgressServer } from '@/repositories/users-progress-repository-server';
-import { FormDataState } from '@/types/forms';
+import { UserRegistration } from '@/types';
 
 export interface RegisterResult {
   userId: string;
@@ -47,7 +47,7 @@ export const checkUserDuplicatesClient = async (
 };
 
 export const registerUser = async (
-  payload: FormDataState
+  payload: UserRegistration
 ): Promise<RegisterResult> => {
   try {
     // Create authentication user

@@ -1,4 +1,4 @@
-import { MenuButtonProps } from '@/types/props';
+import { MenuButtonProps } from '@/types';
 import Link from 'next/link';
 
 const MenuButton = ({ href, icon, title, colors, delay }: MenuButtonProps) => (

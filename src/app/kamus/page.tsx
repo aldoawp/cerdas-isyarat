@@ -1,9 +1,13 @@
 import KamusPage from '@/containers/kamus';
 import { fetchKamusData } from '@/services/kamus-service';
-import { DictionaryData } from '@/types/dictionary';
+import { DictionarySearchResult } from '@/types';
 
 export default async function Kamus() {
-  let dictionaryData: DictionaryData = { categories: [], words: [] };
+  let dictionaryData: DictionarySearchResult = {
+    categories: [],
+    words: [],
+    totalResults: 0,
+  };
 
   try {
     dictionaryData = await fetchKamusData();

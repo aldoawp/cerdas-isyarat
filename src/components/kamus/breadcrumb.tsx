@@ -1,5 +1,5 @@
 import { HomeIcon } from '@/components/icons';
-import { BreadcrumbProps } from '@/types/props';
+import { BreadcrumbProps } from '@/types';
 import React from 'react';
 
 const Breadcrumb: React.FC<BreadcrumbProps> = ({

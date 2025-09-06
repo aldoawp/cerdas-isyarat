@@ -2,7 +2,7 @@
 
 import clsx from 'clsx';
 import { QuestionDisplay } from './question-displays';
-import { FillInTheBlankQuestion } from '@/types/models';
+import { FillInTheBlankQuestion } from '@/types';
 
 export const FillInTheBlankMode = ({
   question,

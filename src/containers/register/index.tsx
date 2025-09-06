@@ -12,13 +12,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import SuccessModal from '@/components/register/success-modal';
 import ErrorModal from '@/components/register/error-modal';
-import { FormDataState, FormErrors } from '@/types/forms';
+import { UserRegistration } from '@/types';
 import { useProtectedRoute, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
 import { createClient } from '@/lib/supabase/client';
 
 type RegisterPageProps = {
-  onRegister?: (form: FormDataState) => Promise<unknown>;
+  onRegister?: (form: UserRegistration) => Promise<unknown>;
 };
 
 const checkUserDuplicates = async (email: string, username: string) => {
@@ -49,7 +49,7 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
   const { loading: authLoading } = useProtectedRoute();
   const { isPageLoading } = usePageLoading();
 
-  const [formData, setFormData] = useState<FormDataState>({
+  const [formData, setFormData] = useState<UserRegistration>({
     fullName: '',
     age: '',
     email: '',
@@ -57,7 +57,9 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
     password: '',
     confirmPassword: '',
   });
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof UserRegistration, string>>
+  >({});
   const [isShaking, setIsShaking] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -69,7 +71,7 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
   });
 
   const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
+    const newErrors: Partial<Record<keyof UserRegistration, string>> = {};
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const usernameRegex = /^[a-zA-Z0-9]{4,}$/;
@@ -164,7 +166,7 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prevState => ({ ...prevState, [name]: value }));
-    if (errors[name as keyof FormDataState]) {
+    if (errors[name as keyof UserRegistration]) {
       setErrors(prevErrors => ({ ...prevErrors, [name]: undefined }));
     }
   };
@@ -182,7 +184,7 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
   }
 
   const formFields: {
-    name: keyof FormDataState;
+    name: keyof UserRegistration;
     placeholder: string;
     type: string;
   }[] = [
@@ -299,9 +301,9 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
                           }
                           name={field.name}
                           placeholder={field.placeholder}
-                          value={formData[field.name as keyof FormDataState]}
+                          value={formData[field.name as keyof UserRegistration]}
                           onChange={handleChange}
-                          className={`h-12 w-full rounded-[20px] border-4 bg-input-bg p-2 pl-12 font-comic text-sm font-bold text-brand-brown-stroke transition-colors placeholder:text-placeholder-brown focus:outline-none focus:ring-2 focus:ring-amber-500 md:h-14 md:text-base ${errors[field.name as keyof FormDataState] ? 'border-red-500' : 'border-input-border'}`}
+                          className={`h-12 w-full rounded-[20px] border-4 bg-input-bg p-2 pl-12 font-comic text-sm font-bold text-brand-brown-stroke transition-colors placeholder:text-placeholder-brown focus:outline-none focus:ring-2 focus:ring-amber-500 md:h-14 md:text-base ${errors[field.name as keyof UserRegistration] ? 'border-red-500' : 'border-input-border'}`}
                         />
                         {isPasswordField && (
                           <button
@@ -322,9 +324,9 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
                           </button>
                         )}
                       </div>
-                      {errors[field.name as keyof FormDataState] && (
+                      {errors[field.name as keyof UserRegistration] && (
                         <p className="ml-2 mt-1 text-xs font-semibold text-red-600">
-                          {errors[field.name as keyof FormDataState]}
+                          {errors[field.name as keyof UserRegistration]}
                         </p>
                       )}
                     </div>

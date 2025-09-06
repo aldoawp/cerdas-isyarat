@@ -11,16 +11,15 @@ import Breadcrumb from '@/components/kamus/breadcrumb';
 import CompactPagination from '@/components/kamus/compact-pagination';
 import { isCategory, isWord } from '@/lib/utils/utils';
 import {
-  Word,
-  Category,
-  SearchResult,
-  DictionaryData,
-} from '@/types/dictionary';
+  DictionaryWord,
+  DictionaryCategory,
+  DictionarySearchResult,
+} from '@/types';
 import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
 
 interface KamusPageProps {
-  dictionaryData: DictionaryData;
+  dictionaryData: DictionarySearchResult;
 }
 
 export default function KamusPage({ dictionaryData }: KamusPageProps) {
@@ -30,25 +29,29 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
   const [view, setView] = useState<'category' | 'wordList' | 'search'>(
     'category'
   );
-  const [allWords] = useState<Word[]>(dictionaryData.words);
-  const [categories] = useState<Category[]>(dictionaryData.categories);
-  const [displayedContent, setDisplayedContent] = useState<SearchResult[]>(
+  const [allWords] = useState<DictionaryWord[]>(dictionaryData.words);
+  const [categories] = useState<DictionaryCategory[]>(
     dictionaryData.categories
   );
-  const [filteredContent, setFilteredContent] = useState<SearchResult[]>(
-    dictionaryData.categories
-  );
+  const [displayedContent, setDisplayedContent] = useState<
+    (DictionaryCategory | DictionaryWord)[]
+  >(dictionaryData.categories);
+  const [filteredContent, setFilteredContent] = useState<
+    (DictionaryCategory | DictionaryWord)[]
+  >(dictionaryData.categories);
   const [isLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [pageTitle, setPageTitle] = useState('Kamus BISINDO');
-  const [selectedWord, setSelectedWord] = useState<Word | undefined>(undefined);
+  const [selectedWord, setSelectedWord] = useState<DictionaryWord | undefined>(
+    undefined
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;
 
   // Filter dan search logic
   useEffect(() => {
-    let filtered: SearchResult[] = [];
+    let filtered: (DictionaryCategory | DictionaryWord)[] = [];
     switch (view) {
       case 'category': {
         filtered = categories;
@@ -57,7 +60,7 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
       }
       case 'wordList': {
         filtered = allWords.filter(
-          word => word.category === selectedCategoryId
+          word => word.categoryId === selectedCategoryId
         );
 
         break;
@@ -69,7 +72,7 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
             cat.name.toLowerCase().includes(searchLower)
           );
           const matchedWords = allWords.filter(word =>
-            word.name.toLowerCase().includes(searchLower)
+            word.title.toLowerCase().includes(searchLower)
           );
           filtered = [...matchedCategories, ...matchedWords];
         } else {
@@ -91,7 +94,7 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
     setDisplayedContent(filteredContent.slice(startIndex, endIndex));
   }, [filteredContent, currentPage]);
 
-  const handleCategoryClick = (category: Category) => {
+  const handleCategoryClick = (category: DictionaryCategory) => {
     setSelectedCategoryId(category.id);
     setPageTitle(category.name);
     setView('wordList');
@@ -138,7 +141,7 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
     }
   };
 
-  const openWordDetail = (word: Word) => setSelectedWord(word);
+  const openWordDetail = (word: DictionaryWord) => setSelectedWord(word);
   const closeWordDetail = () => setSelectedWord(undefined);
 
   const totalPages = Math.ceil(filteredContent.length / ITEMS_PER_PAGE);
@@ -258,8 +261,12 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
                     >
                       <div className="mx-auto mb-2 flex w-full flex-1 items-center justify-center rounded-2xl border border-orange-200/50 bg-gradient-to-br from-orange-50/95 to-yellow-50/95 shadow-inner">
                         <Image
-                          src={isCategory(item) ? item.imageUrl : item.gifUrl}
-                          alt={item.name}
+                          src={
+                            isCategory(item)
+                              ? item.thumbnail
+                              : item.gifUrl || '/images/default-video.gif'
+                          }
+                          alt={isCategory(item) ? item.name : item.title}
                           width={60}
                           height={60}
                           className={`object-contain drop-shadow-sm ${
@@ -276,12 +283,12 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
                             : 'text-sm md:text-lg'
                         }`}
                       >
-                        {item.name}
+                        {isCategory(item) ? item.name : item.title}
                       </span>
                       {isWord(item) && (
                         <div className="mt-1 text-xs font-medium text-brand-brown-stroke/70">
                           {
-                            categories.find(cat => cat.id === item.category)
+                            categories.find(cat => cat.id === item.categoryId)
                               ?.name
                           }
                         </div>
@@ -341,8 +348,8 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
               {/* Large GIF/Image Container */}
               <div className="relative size-80 overflow-hidden rounded-3xl border-4 border-orange-200/50 bg-gradient-to-br from-orange-50 to-yellow-50 shadow-inner">
                 <Image
-                  src={selectedWord.gifUrl}
-                  alt={selectedWord.name}
+                  src={selectedWord.gifUrl || '/images/default-video.gif'}
+                  alt={selectedWord.title}
                   fill
                   className="object-contain p-4"
                 />
@@ -355,17 +362,17 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
               {/* Word Details */}
               <div className="space-y-4 text-center">
                 <h3 className="text-4xl font-bold text-brand-brown-stroke drop-shadow-lg">
-                  {selectedWord.name}
+                  {selectedWord.title}
                 </h3>
                 <div className="inline-block rounded-full border-2 border-white bg-gradient-to-r from-orange-400 to-yellow-500 px-6 py-3 text-lg font-bold text-white shadow-lg">
-                  {categories.find(cat => cat.id === selectedWord.category)
+                  {categories.find(cat => cat.id === selectedWord.categoryId)
                     ?.name || 'Kategori'}
                 </div>
                 <p className="mx-auto max-w-md text-sm leading-relaxed text-gray-600">
                   Pelajari gerakan bahasa isyarat untuk kata &ldquo;
-                  {selectedWord.name}&rdquo; dalam kategori{' '}
+                  {selectedWord.title}&rdquo; dalam kategori{' '}
                   {categories
-                    .find(cat => cat.id === selectedWord.category)
+                    .find(cat => cat.id === selectedWord.categoryId)
                     ?.name?.toLowerCase()}
                   .
                 </p>
