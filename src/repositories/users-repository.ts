@@ -40,3 +40,54 @@ export const insertUserProfile = async ({
   } as any);
   if (error) throw error;
 };
+
+export const checkUserExists = async (email: string, username: string) => {
+  const supabase = await createServerClient();
+
+  // Check if email or username already exists
+  const { data, error } = await supabase
+    .from('users')
+    .select('email, username')
+    .or(`email.eq.${email},username.eq.${username}`)
+    .limit(2);
+
+  if (error) throw error;
+
+  const existingEmail = data?.find(user => user.email === email);
+  const existingUsername = data?.find(user => user.username === username);
+
+  return {
+    emailExists: !!existingEmail,
+    usernameExists: !!existingUsername,
+    existingEmail: existingEmail?.email,
+    existingUsername: existingUsername?.username,
+  };
+};
+
+// Client-side version for use in client components
+export const checkUserExistsClient = async (
+  email: string,
+  username: string
+) => {
+  const { createClient } = await import('@/lib/supabase/client');
+  const supabase = createClient();
+
+  // Check if email or username already exists
+  const { data, error } = await supabase
+    .from('users')
+    .select('email, username')
+    .or(`email.eq.${email},username.eq.${username}`)
+    .limit(2);
+
+  if (error) throw error;
+
+  const existingEmail = data?.find(user => user.email === email);
+  const existingUsername = data?.find(user => user.username === username);
+
+  return {
+    emailExists: !!existingEmail,
+    usernameExists: !!existingUsername,
+    existingEmail: existingEmail?.email,
+    existingUsername: existingUsername?.username,
+  };
+};

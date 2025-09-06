@@ -11,12 +11,37 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import SuccessModal from '@/components/register/success-modal';
+import ErrorModal from '@/components/register/error-modal';
 import { FormDataState, FormErrors } from '@/types/forms';
 import { useProtectedRoute, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
+import { createClient } from '@/lib/supabase/client';
 
 type RegisterPageProps = {
   onRegister?: (form: FormDataState) => Promise<unknown>;
+};
+
+const checkUserDuplicates = async (email: string, username: string) => {
+  const supabase = createClient();
+
+  // Check if email or username already exists
+  const { data, error } = await supabase
+    .from('users')
+    .select('email, username')
+    .or(`email.eq.${email},username.eq.${username}`)
+    .limit(2);
+
+  if (error) throw error;
+
+  const existingEmail = data?.find(user => user.email === email);
+  const existingUsername = data?.find(user => user.username === username);
+
+  return {
+    emailExists: !!existingEmail,
+    usernameExists: !!existingUsername,
+    existingEmail: existingEmail?.email,
+    existingUsername: existingUsername?.username,
+  };
 };
 
 export default function RegisterPage({ onRegister }: RegisterPageProps) {
@@ -35,6 +60,9 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isShaking, setIsShaking] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
   const [passwordVisibility, setPasswordVisibility] = useState({
     password: false,
     confirmPassword: false,
@@ -43,11 +71,28 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const usernameRegex = /^[a-zA-Z0-9]{4,}$/;
+
     if (!formData.fullName)
       newErrors.fullName = 'Nama lengkap tidak boleh kosong, ya!';
     if (!formData.age) newErrors.age = 'Umurnya berapa, nih?';
-    if (!formData.username)
+
+    // Email validation
+    if (!formData.email) {
+      newErrors.email = 'Email-nya jangan lupa diisi, ya!';
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Format email tidak valid, nih. Contoh: nama@email.com';
+    }
+
+    // Username validation
+    if (!formData.username) {
       newErrors.username = 'Username-nya jangan lupa diisi.';
+    } else if (!usernameRegex.test(formData.username)) {
+      newErrors.username =
+        'Username harus minimal 4 karakter dan hanya boleh huruf dan angka, ya!';
+    }
+
     if (!formData.password) {
       newErrors.password = 'Passwordnya rahasia, tapi harus diisi!';
     } else if (!passwordRegex.test(formData.password)) {
@@ -74,7 +119,34 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
       setIsShaking(true);
       return;
     }
+
+    // Check for duplicates before proceeding with registration
+    setIsCheckingDuplicates(true);
     try {
+      const duplicateCheck = await checkUserDuplicates(
+        formData.email,
+        formData.username
+      );
+
+      if (duplicateCheck.emailExists || duplicateCheck.usernameExists) {
+        let errorMsg = '';
+        if (duplicateCheck.emailExists && duplicateCheck.usernameExists) {
+          errorMsg =
+            'Email dan username sudah digunakan. Silakan gunakan email dan username yang berbeda.';
+        } else if (duplicateCheck.emailExists) {
+          errorMsg =
+            'Email sudah digunakan. Silakan gunakan email yang berbeda.';
+        } else if (duplicateCheck.usernameExists) {
+          errorMsg =
+            'Username sudah digunakan. Silakan gunakan username yang berbeda.';
+        }
+        setErrorMessage(errorMsg);
+        setShowErrorModal(true);
+        setIsCheckingDuplicates(false);
+        return;
+      }
+
+      // If no duplicates found, proceed with registration
       if (onRegister) {
         await onRegister(formData);
       }
@@ -82,8 +154,10 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Registrasi gagal.';
-      setErrors(prev => ({ ...prev, username: message }));
-      setIsShaking(true);
+      setErrorMessage(message);
+      setShowErrorModal(true);
+    } finally {
+      setIsCheckingDuplicates(false);
     }
   };
 
@@ -149,6 +223,16 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
             setShowSuccessModal(false);
             router.push('/login');
           }}
+        />
+      )}
+
+      {showErrorModal && (
+        <ErrorModal
+          isOpen={showErrorModal}
+          onClose={() => setShowErrorModal(false)}
+          title="Oops! Ada Masalah"
+          message={errorMessage}
+          mascotSrc="/images/mascot-cropped-1-tp 1.png"
         />
       )}
 
@@ -251,9 +335,10 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
               <div className="mt-6 text-center">
                 <button
                   type="submit"
-                  className={`w-3/4 rounded-[15px] border-4 border-brand-brown-stroke bg-amber-500 py-2 font-comic text-lg font-bold text-white transition duration-300 hover:bg-yellow-600 active:scale-95 ${isShaking ? 'animate-shake' : ''}`}
+                  disabled={isCheckingDuplicates}
+                  className={`w-3/4 rounded-[15px] border-4 border-brand-brown-stroke bg-amber-500 py-2 font-comic text-lg font-bold text-white transition duration-300 hover:bg-yellow-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${isShaking ? 'animate-shake' : ''}`}
                 >
-                  BUAT AKUN
+                  {isCheckingDuplicates ? 'MEMERIKSA...' : 'BUAT AKUN'}
                 </button>
               </div>
             </form>
