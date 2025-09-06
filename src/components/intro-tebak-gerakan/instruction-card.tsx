@@ -1,4 +1,4 @@
-import { InstructionCardProps } from '@/types/props';
+import { InstructionCardProps } from '@/types';
 
 const InstructionCard = ({
   step,

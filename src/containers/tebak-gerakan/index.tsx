@@ -13,7 +13,7 @@ import QuestionCounter from '@/components/tebak-gerakan/question-counter';
 import ScoreDisplay from '@/components/tebak-gerakan/score-display';
 import TimerDisplay from '@/components/tebak-gerakan/timer-display';
 import CameraView from '@/components/tebak-gerakan/camera-view';
-import { Movement } from '@/types/models';
+import { Movement } from '@/types';
 import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
 

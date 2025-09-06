@@ -1,11 +1,13 @@
-import { SearchResult, Category, Word } from '@/types/dictionary';
+import { DictionaryCategory, DictionaryWord } from '@/types';
 
-const isCategory = (item: SearchResult): item is Category => {
-  return 'imageUrl' in item;
+type SearchResult = DictionaryCategory | DictionaryWord;
+
+const isCategory = (item: SearchResult): item is DictionaryCategory => {
+  return 'thumbnail' in item && 'wordCount' in item;
 };
 
-const isWord = (item: SearchResult): item is Word => {
-  return 'category' in item && 'gifUrl' in item;
+const isWord = (item: SearchResult): item is DictionaryWord => {
+  return 'categoryId' in item && 'title' in item;
 };
 
 export { isCategory, isWord };

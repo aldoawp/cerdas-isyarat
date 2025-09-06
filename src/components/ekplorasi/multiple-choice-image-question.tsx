@@ -3,7 +3,7 @@
 import clsx from 'clsx';
 import Image from 'next/image';
 import { QuestionDisplay } from './question-displays';
-import { MultipleChoiceImageQuestion } from '@/types/models';
+import { MultipleChoiceImageQuestion } from '@/types';
 
 export const MultipleChoiceImageMode = ({
   question,
