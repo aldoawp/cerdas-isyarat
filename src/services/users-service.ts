@@ -1,6 +1,8 @@
 import {
   createAuthUser,
   insertUserProfile,
+  checkUserExists,
+  checkUserExistsClient,
 } from '@/repositories/users-repository';
 import { createUserProgressServer } from '@/repositories/users-progress-repository-server';
 import { FormDataState } from '@/types/forms';
@@ -10,6 +12,39 @@ export interface RegisterResult {
   email: string;
   username: string;
 }
+
+export interface DuplicateCheckResult {
+  emailExists: boolean;
+  usernameExists: boolean;
+  existingEmail?: string;
+  existingUsername?: string;
+}
+
+export const checkUserDuplicates = async (
+  email: string,
+  username: string
+): Promise<DuplicateCheckResult> => {
+  try {
+    const result = await checkUserExists(email, username);
+    return result;
+  } catch (error) {
+    console.error('Error checking user duplicates:', error);
+    throw new Error('Failed to check user duplicates');
+  }
+};
+
+export const checkUserDuplicatesClient = async (
+  email: string,
+  username: string
+): Promise<DuplicateCheckResult> => {
+  try {
+    const result = await checkUserExistsClient(email, username);
+    return result;
+  } catch (error) {
+    console.error('Error checking user duplicates:', error);
+    throw new Error('Failed to check user duplicates');
+  }
+};
 
 export const registerUser = async (
   payload: FormDataState
