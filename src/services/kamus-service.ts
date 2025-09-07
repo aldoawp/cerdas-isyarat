@@ -1,7 +1,7 @@
 import { getKamusData } from '@/repositories/kamus-repository';
-import { DictionaryData } from '@/types/dictionary';
+import { DictionarySearchResult } from '@/types';
 
-export const fetchKamusData = async (): Promise<DictionaryData> => {
+export const fetchKamusData = async (): Promise<DictionarySearchResult> => {
   try {
     const data = await getKamusData();
     return data;

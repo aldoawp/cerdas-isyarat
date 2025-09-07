@@ -1,4 +1,4 @@
-import { Movement } from '@/types/models';
+import { Movement } from '@/types';
 
 export const mockMovements: Movement[] = [
   {

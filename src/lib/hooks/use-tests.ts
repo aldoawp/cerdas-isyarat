@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'; // [DIPERBAIK
 import { useRouter } from 'next/navigation';
 import { useUserProgress } from './use-user-progress';
 import { testBank, TEST_DURATION_MS } from '@/dummy/test-bank';
-import { TestState } from '@/types/models';
+import { TestSession } from '@/types';
 
 export const useTest = (levelId: number) => {
   const router = useRouter();
@@ -13,7 +13,9 @@ export const useTest = (levelId: number) => {
   // [DIPERBAIKI] Gunakan useMemo untuk menstabilkan referensi 'questions'
   const questions = useMemo(() => testBank[levelId] || [], [levelId]);
 
-  const [testState, setTestState] = useState<TestState | undefined>(undefined);
+  const [testState, setTestState] = useState<TestSession | undefined>(
+    undefined
+  );
   const [timeLeft, setTimeLeft] = useState(TEST_DURATION_MS);
   const [showResults, setShowResults] = useState(false);
   const [finalScore, setFinalScore] = useState({ score: 0, correct: 0 });
@@ -52,12 +54,12 @@ export const useTest = (levelId: number) => {
     setFinalScore({ score, correct: correctCount });
     setShowResults(true);
     localStorage.removeItem(`testState_level_${levelId}`);
-  }, [testState, questions, levelId]);
+  }, [testState, questions, levelId, decreaseLife]);
 
   const handleTimeUp = useCallback(() => {
     decreaseLife();
     calculateAndFinalize();
-  }, [calculateAndFinalize]);
+  }, [calculateAndFinalize, decreaseLife]);
 
   useEffect(() => {
     if (!testState) return;
