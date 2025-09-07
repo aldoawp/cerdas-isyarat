@@ -40,13 +40,13 @@ const getKamusData = async (): Promise<DictionarySearchResult> => {
         title,
         description,
         thumbnail,
-        video,
+        media,
         created_at,
         updated_at,
         assets_thumbnail:assets!dictionary_details_thumbnail_fkey (
           url
         ),
-        assets_video:assets!dictionary_details_video_fkey (
+        assets_media:assets!dictionary_details_media_fkey (
           url
         )
       `
@@ -80,8 +80,8 @@ const getKamusData = async (): Promise<DictionarySearchResult> => {
       categoryId: detail.category_id,
       categoryName: '',
       thumbnail: detail.assets_thumbnail?.url,
-      videoUrl: detail.assets_video?.url,
-      gifUrl: detail.assets_video?.url,
+      mediaUrl: detail.assets_media?.url,
+      gifUrl: detail.assets_media?.url,
       order: 0,
       created_at: detail.created_at,
       updated_at: detail.updated_at,

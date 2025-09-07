@@ -269,7 +269,7 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
                           alt={isCategory(item) ? item.name : item.title}
                           width={60}
                           height={60}
-                          className={`object-contain drop-shadow-sm ${
+                          className={`object-cover drop-shadow-sm ${
                             displayedContent.length <= 2
                               ? 'size-16 md:size-24'
                               : 'md:size-20'
