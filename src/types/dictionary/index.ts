@@ -18,7 +18,7 @@ export interface DictionaryWord {
   categoryId: string;
   categoryName: string;
   thumbnail?: string;
-  videoUrl?: string;
+  mediaUrl?: string;
   gifUrl?: string;
   order: number;
   created_at: string;

@@ -12,35 +12,19 @@ import clsx from 'clsx';
 import BackButton from '@/components/shared/backbutton/backbutton';
 import UserDetail, { getUserData } from '@/components/shared/userinfo';
 import MusicPlayer from '@/components/shared/musicplayer/musicplayer';
+import { resetLevelProgress } from '@/lib/utils/progress-manager';
 import {
-  getProgress as getProgressFromLocalStorage,
-  resetLevelProgress,
-} from '@/lib/utils/progress-manager';
-import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+  useRequireAuth,
+  usePageLoading,
+  useAuth,
+} from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
+import {
+  getExplorationLevelsWithProgress,
+  ProcessedExplorationLevel,
+} from '@/services/ekplorasi-service';
 
 // --- TIPE DATA ---
-type LevelStatus = 'locked' | 'unlocked' | 'completed';
-interface UserProgress {
-  completedLevelIds: number[];
-  learningProgress: {
-    [levelId: number]: { progress: number; lastIndex: number };
-  };
-}
-interface Level {
-  id: number;
-  title: string;
-  description: string;
-  imgUrl: string;
-  status: LevelStatus;
-  learningProgress: number;
-}
-interface MasterLevel {
-  id: number;
-  title: string;
-  description: string;
-  imgUrl: string;
-}
 
 const StudyOptionsModal = ({
   isOpen,
@@ -132,17 +116,41 @@ const NoLivesModal = ({
   );
 };
 
-const ProgressIndicator = ({ progress }: { progress: number }) => (
-  <div className="flex w-full items-center gap-2 rounded-full bg-white/60 px-2 py-1 text-xs font-semibold text-placeholder-brown shadow-inner">
-    <div className="h-2 flex-1 rounded-full bg-gray-300">
-      <div
-        className="h-2 rounded-full bg-icon-green-bg"
-        style={{ width: `${progress}%` }}
-      />
+const ProgressIndicator = ({
+  progress,
+  isCurrentLevel,
+  currentStep,
+  totalSteps,
+}: {
+  progress: number;
+  isCurrentLevel?: boolean;
+  currentStep?: number;
+  totalSteps?: number;
+}) => {
+  // Calculate the proper percentage for the progress bar
+  let progressPercentage = progress;
+
+  if (isCurrentLevel && currentStep && totalSteps && totalSteps > 0) {
+    // For current level, calculate percentage from step number
+    progressPercentage = Math.round((currentStep / totalSteps) * 100);
+  }
+
+  return (
+    <div className="flex w-full items-center gap-2 rounded-full bg-white/60 px-2 py-1 text-xs font-semibold text-placeholder-brown shadow-inner">
+      <div className="h-2 flex-1 rounded-full bg-gray-300">
+        <div
+          className="h-2 rounded-full bg-icon-green-bg"
+          style={{ width: `${progressPercentage}%` }}
+        />
+      </div>
+      <span className="font-bold">
+        {isCurrentLevel && currentStep
+          ? `Step ${currentStep}`
+          : `${progressPercentage}%`}
+      </span>
     </div>
-    <span className="font-bold">{progress}%</span>
-  </div>
-);
+  );
+};
 
 const LevelCard = ({
   level,
@@ -150,7 +158,7 @@ const LevelCard = ({
   onTest,
   lives,
 }: {
-  level: Level;
+  level: ProcessedExplorationLevel;
   onStudy: () => void;
   onTest: () => void;
   lives: number;
@@ -161,7 +169,9 @@ const LevelCard = ({
     level.status === 'unlocked' &&
     level.learningProgress > 0 &&
     level.learningProgress < 100;
-  const isTestReady = level.learningProgress >= 100 || isCompleted;
+  // Test is ready only when user has completed all learning modules
+  const isTestReady =
+    isCompleted || (level.status === 'unlocked' && level.isLearningComplete);
   const hasLives = lives > 0;
 
   // [DIUBAH] Tombol "Belajar Materi" berubah teks jika nyawa habis dan tes sudah siap
@@ -207,7 +217,12 @@ const LevelCard = ({
           />
         </div>
         {isStudying ? (
-          <ProgressIndicator progress={level.learningProgress} />
+          <ProgressIndicator
+            progress={level.learningProgress}
+            isCurrentLevel={level.status === 'unlocked'}
+            currentStep={level.currentStep}
+            totalSteps={level.totalSteps}
+          />
         ) : (
           <div className="py-1 text-sm font-semibold text-placeholder-brown">
             {level.description}
@@ -239,96 +254,53 @@ const LevelCard = ({
   );
 };
 
-// --- DATA MASTER & FUNGSI PEMROSESAN ---
-const masterLevels: MasterLevel[] = [
-  {
-    id: 1,
-    title: 'Level 1',
-    description: 'Abjad A - E',
-    imgUrl: '/images/placeholder-materi.png',
-  },
-  {
-    id: 2,
-    title: 'Level 2',
-    description: 'Abjad F - J',
-    imgUrl: '/images/placeholder-materi.png',
-  },
-  {
-    id: 3,
-    title: 'Level 3',
-    description: 'Kata Tanya',
-    imgUrl: '/images/placeholder-materi.png',
-  },
-  {
-    id: 4,
-    title: 'Level 4',
-    description: 'Kata Sapaan',
-    imgUrl: '/images/placeholder-materi.png',
-  },
-  {
-    id: 5,
-    title: 'Level 5',
-    description: 'Angka 1 - 10',
-    imgUrl: '/images/placeholder-materi.png',
-  },
-  {
-    id: 6,
-    title: 'Level 6',
-    description: 'Keluarga',
-    imgUrl: '/images/placeholder-materi.png',
-  },
-];
-const processLevels = (
-  masterLevels: MasterLevel[],
-  progress: UserProgress
-): Level[] => {
-  const highestCompleted =
-    progress.completedLevelIds.length > 0
-      ? Math.max(...progress.completedLevelIds)
-      : 0;
-  return masterLevels.map(level => {
-    let status: LevelStatus = 'locked';
-    if (progress.completedLevelIds.includes(level.id)) {
-      status = 'completed';
-    } else if (
-      level.id === highestCompleted + 1 ||
-      (highestCompleted === 0 && level.id === 1)
-    ) {
-      status = 'unlocked';
-    }
-    return {
-      ...level,
-      status,
-      learningProgress: progress.learningProgress[level.id]?.progress ?? 0,
-    };
-  });
-};
+// --- FUNGSI PEMROSESAN ---
 
 // --- KOMPONEN UTAMA HALAMAN EKSPLORASI ---
 export default function EksplorasiPage() {
   const router = useRouter();
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
-  const [levels, setLevels] = useState<Level[]>([]);
+  const { user } = useAuth();
+  const [levels, setLevels] = useState<ProcessedExplorationLevel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | undefined>(undefined);
   const [studyModalState, setStudyModalState] = useState<{
     isOpen: boolean;
-    level: Level | undefined;
+    level: ProcessedExplorationLevel | undefined;
   }>({ isOpen: false, level: undefined });
   const [userLives, setUserLives] = useState(3);
   const [noLivesModalState, setNoLivesModalState] = useState<{
     isOpen: boolean;
-    level: Level | undefined;
+    level: ProcessedExplorationLevel | undefined;
   }>({ isOpen: false, level: undefined });
 
-  const loadData = useCallback(() => {
-    const userProgress = getProgressFromLocalStorage();
-    const processed = processLevels(masterLevels, userProgress);
-    const userData = getUserData();
-    setUserLives(userData?.lives ?? 3);
-    setLevels(processed);
-    setIsLoading(false);
-  }, []);
+  const loadData = useCallback(async () => {
+    if (!user?.id) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(undefined);
+
+      const result = await getExplorationLevelsWithProgress(user.id);
+      setLevels(result.levels);
+
+      // Get user lives from localStorage for now (you might want to move this to backend later)
+      const userData = getUserData();
+      setUserLives(userData?.lives ?? 3);
+    } catch (error_) {
+      // eslint-disable-next-line no-console
+      console.error('Error loading exploration levels:', error_);
+      setError(
+        error_ instanceof Error ? error_.message : 'Failed to load levels'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id]);
   useEffect(() => {
     loadData();
     globalThis.addEventListener('userStateChange', loadData);
@@ -340,14 +312,15 @@ export default function EksplorasiPage() {
   }, [loadData]);
 
   const handleStudyClick = useCallback(
-    (level: Level) => {
+    (level: ProcessedExplorationLevel) => {
       const isTestReady =
-        level.learningProgress >= 100 || level.status === 'completed';
+        level.status === 'completed' ||
+        (level.status === 'unlocked' && level.isLearningComplete);
 
       // [FIX] Jika nyawa habis DAN level sudah siap tes, maka "Belajar Materi" menjadi "Ulangi Materi"
       // yang fungsinya mereset progress.
       if (userLives <= 0 && isTestReady) {
-        resetLevelProgress(level.id);
+        resetLevelProgress(level.levelNumber);
         router.push(`/eksplorasi/${level.id}/materi`);
         return;
       }
@@ -364,7 +337,7 @@ export default function EksplorasiPage() {
   );
 
   const handleTestClick = useCallback(
-    (level: Level) => {
+    (level: ProcessedExplorationLevel) => {
       if (userLives > 0) {
         router.push(`/eksplorasi/${level.id}/tes`);
       } else {
@@ -385,7 +358,7 @@ export default function EksplorasiPage() {
   // [FIX] Fungsi ini HANYA dipanggil dari modal "Nyawa Habis"
   const handleGoToStudyFromNoLives = () => {
     if (noLivesModalState.level) {
-      resetLevelProgress(noLivesModalState.level.id);
+      resetLevelProgress(noLivesModalState.level.levelNumber);
       router.push(`/eksplorasi/${noLivesModalState.level.id}/materi`);
     }
     setNoLivesModalState({ isOpen: false, level: undefined });
@@ -437,6 +410,10 @@ export default function EksplorasiPage() {
           {isLoading ? (
             <div className="flex flex-1 items-center justify-center text-xl font-bold text-white">
               Memuat level...
+            </div>
+          ) : error ? (
+            <div className="flex flex-1 items-center justify-center text-xl font-bold text-red-400">
+              {error}
             </div>
           ) : (
             <div className="grid flex-1 grid-cols-2 items-stretch gap-4 md:grid-cols-3 lg:grid-cols-4 xl:gap-5">
