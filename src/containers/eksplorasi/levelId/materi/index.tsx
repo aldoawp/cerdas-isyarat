@@ -1,20 +1,24 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { useUserProgress } from '@/lib/hooks/use-user-progress';
 import BackButton from '../../../../components/shared/backbutton/backbutton'; // [DITAMBAHKAN] Impor komponen BackButton
-import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import {
+  useRequireAuth,
+  usePageLoading,
+  useAuth,
+} from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
+import {
+  getLearningModulesForExploration,
+  ProcessedLearningModule,
+  updateUserExplorationProgress,
+  getUserCurrentStep,
+} from '@/services/ekplorasi-service';
 
 // --- Tipe Data & Logika Progress ---
-interface MateriItem {
-  id: string;
-  name: string;
-  imageUrl: string;
-  exampleSentence: string;
-}
 interface LevelProgress {
   progress: number;
   lastIndex: number;
@@ -23,142 +27,7 @@ interface UserProgress {
   completedLevelIds: number[];
   learningProgress: { [levelId: number]: LevelProgress };
 }
-const materiData: { [levelId: number]: MateriItem[] } = {
-  1: [
-    {
-      id: '1a',
-      name: 'Huruf A',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: 'Saya suka **A**pel.',
-    },
-    {
-      id: '1b',
-      name: 'Huruf B',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: 'Ini **B**ola baru.',
-    },
-    {
-      id: '1c',
-      name: 'Huruf C',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**C**icak di dinding.',
-    },
-    {
-      id: '1d',
-      name: 'Huruf D',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: 'Itu **D**omba putih.',
-    },
-    {
-      id: '1e',
-      name: 'Huruf E',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**E**lang terbang tinggi.',
-    },
-  ],
-  2: [
-    {
-      id: '2f',
-      name: 'Huruf F',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**F**oto keluarga kami.',
-    },
-    {
-      id: '2g',
-      name: 'Huruf G',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: 'Dia punya **G**ajah mainan.',
-    },
-    {
-      id: '2h',
-      name: 'Huruf H',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: 'Hari ini **H**ujan.',
-    },
-    {
-      id: '2i',
-      name: 'Huruf I',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: 'Adik makan **I**kan.',
-    },
-    {
-      id: '2j',
-      name: 'Huruf J',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: 'Aku suka **J**eruk.',
-    },
-  ],
-  3: [
-    {
-      id: '3a',
-      name: 'Apa?',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Apa** warna bajumu?',
-    },
-    {
-      id: '3b',
-      name: 'Siapa?',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Siapa** nama ibumu?',
-    },
-    {
-      id: '3c',
-      name: 'Di mana?',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Di mana** kamu tinggal?',
-    },
-    {
-      id: '3d',
-      name: 'Kapan?',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Kapan** kamu lahir?',
-    },
-    {
-      id: '3e',
-      name: 'Mengapa?',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Mengapa** kamu sedih?',
-    },
-    {
-      id: '3f',
-      name: 'Bagaimana?',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Bagaimana** cara membuatnya?',
-    },
-  ],
-  4: [
-    {
-      id: '4a',
-      name: 'Halo',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Halo**, apa kabar?',
-    },
-    {
-      id: '4b',
-      name: 'Selamat Pagi',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Selamat Pagi**, Ayah.',
-    },
-    {
-      id: '4c',
-      name: 'Terima Kasih',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Terima kasih** atas hadiahnya.',
-    },
-    {
-      id: '4d',
-      name: 'Maaf',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Maaf**, aku tidak sengaja.',
-    },
-    {
-      id: '4e',
-      name: 'Sampai Jumpa',
-      imageUrl: '/images/materi/placeholder.png',
-      exampleSentence: '**Sampai jumpa** besok!',
-    },
-  ],
-};
+// --- FUNGSI PEMROSESAN ---
 const PROGRESS_KEY = 'userBisindoProgress';
 const getProgress = (): UserProgress => {
   if (globalThis.window === undefined)
@@ -233,26 +102,81 @@ export default function MateriPage() {
   const params = useParams();
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
-  const levelId = Number.parseInt(params.levelId as string);
+  const { user } = useAuth();
+  const levelId = params.levelId as string; // Changed to string since we're using exploration_id
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const materials = useMemo(() => materiData[levelId] || [], [levelId]);
+  const [materials, setMaterials] = useState<ProcessedLearningModule[]>([]);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  const loadMaterials = useCallback(async () => {
+    if (!levelId || !user?.id) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(undefined);
+
+      const modules = await getLearningModulesForExploration(levelId);
+      setMaterials(modules);
+
+      // Get current step from backend progress
+      const currentStep = await getUserCurrentStep(user.id, modules.length);
+      setCurrentIndex(currentStep);
+    } catch (error_) {
+      // eslint-disable-next-line no-console
+      console.error('Error loading learning modules:', error_);
+      setError(
+        error_ instanceof Error ? error_.message : 'Failed to load materials'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [levelId, user?.id]);
 
   useEffect(() => {
-    if (levelId && materiData[levelId]) {
-      const savedProgress = getProgress();
-      const lastIndex = savedProgress.learningProgress[levelId]?.lastIndex ?? 0;
-      setCurrentIndex(lastIndex);
+    loadMaterials();
+  }, [loadMaterials]);
+
+  // Function to update backend progress
+  const updateBackendProgress = useCallback(async () => {
+    if (!user?.id || materials.length === 0) return;
+
+    try {
+      await updateUserExplorationProgress(
+        user.id,
+        currentIndex,
+        materials.length
+      );
+    } catch (error_) {
+      // eslint-disable-next-line no-console
+      console.error('Error updating backend progress:', error_);
+      // Continue with local progress update as fallback
     }
-    setIsLoading(false);
-  }, [levelId]);
+  }, [user?.id, currentIndex, materials.length]);
 
   useEffect(() => {
     if (!isLoading && materials.length > 0) {
-      updateLearningProgress(levelId, currentIndex, materials.length);
+      // Update local progress (for backward compatibility)
+      updateLearningProgress(
+        Number.parseInt(levelId),
+        currentIndex,
+        materials.length
+      );
+
+      // Update backend progress
+      updateBackendProgress();
     }
-  }, [currentIndex, levelId, materials.length, isLoading]);
+  }, [
+    currentIndex,
+    levelId,
+    materials.length,
+    isLoading,
+    updateBackendProgress,
+  ]);
 
   const handleBackClick = () => setIsModalOpen(true);
   const handleConfirmBack = () => router.push('/eksplorasi');
@@ -266,14 +190,29 @@ export default function MateriPage() {
 
   const { refillLives } = useUserProgress();
 
-  const handleNext = useCallback(() => {
+  const handleNext = useCallback(async () => {
     if (isLastMateri) {
+      // Update progress to maximum step (don't complete the level yet)
+      if (user?.id) {
+        try {
+          await updateUserExplorationProgress(
+            user.id,
+            materials.length - 1, // Last step (0-based index)
+            materials.length
+          );
+        } catch (error_) {
+          // eslint-disable-next-line no-console
+          console.error('Error updating progress:', error_);
+          // Continue anyway - don't block user experience
+        }
+      }
+
       refillLives();
       router.push('/eksplorasi');
     } else {
       setCurrentIndex(prev => prev + 1);
     }
-  }, [isLastMateri, router, refillLives]);
+  }, [isLastMateri, router, refillLives, user?.id, materials.length]);
 
   const handlePrev = useCallback(() => {
     setCurrentIndex(prev => Math.max(0, prev - 1));
@@ -290,7 +229,21 @@ export default function MateriPage() {
         Memuat materi...
       </div>
     );
-  if (!currentMateri)
+
+  if (error)
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-gray-100 p-4 text-center font-sans">
+        <h2 className="text-2xl font-bold text-red-500">Error: {error}</h2>
+        <button
+          onClick={() => router.push('/eksplorasi')}
+          className="mt-4 rounded-lg bg-blue-500 px-6 py-2 font-bold text-white"
+        >
+          Kembali
+        </button>
+      </div>
+    );
+
+  if (!currentMateri || materials.length === 0)
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-gray-100 p-4 text-center font-sans">
         <h2 className="text-2xl font-bold text-red-500">
@@ -340,12 +293,12 @@ export default function MateriPage() {
         <main className="flex flex-1 animate-fade-in-up flex-col items-center justify-center p-4 md:p-6">
           <div className="w-full max-w-2xl rounded-3xl bg-form-bg p-6 text-center shadow-2xl drop-shadow-comic">
             <h1 className="text-5xl font-bold text-brand-yellow drop-shadow-lg text-stroke-base md:text-6xl">
-              {currentMateri.name}
+              {currentMateri.title}
             </h1>
             <div className="my-4 flex h-52 w-full items-center justify-center rounded-2xl bg-input-bg shadow-inner md:h-64">
               <Image
                 src={currentMateri.imageUrl}
-                alt={`Isyarat untuk ${currentMateri.name}`}
+                alt={`Isyarat untuk ${currentMateri.title}`}
                 width={250}
                 height={250}
                 className="object-contain"
@@ -359,7 +312,11 @@ export default function MateriPage() {
               <p
                 className="font-comic text-xl text-gray-800"
                 dangerouslySetInnerHTML={{
-                  __html: currentMateri.exampleSentence.replaceAll(
+                  __html: (
+                    currentMateri.exampleSentence ||
+                    currentMateri.description ||
+                    ''
+                  ).replaceAll(
                     /\*\*(.*?)\*\*/g,
                     '<strong class="text-brand-brown-stroke">$1</strong>'
                   ),

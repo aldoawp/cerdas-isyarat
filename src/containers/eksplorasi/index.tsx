@@ -116,17 +116,41 @@ const NoLivesModal = ({
   );
 };
 
-const ProgressIndicator = ({ progress }: { progress: number }) => (
-  <div className="flex w-full items-center gap-2 rounded-full bg-white/60 px-2 py-1 text-xs font-semibold text-placeholder-brown shadow-inner">
-    <div className="h-2 flex-1 rounded-full bg-gray-300">
-      <div
-        className="h-2 rounded-full bg-icon-green-bg"
-        style={{ width: `${progress}%` }}
-      />
+const ProgressIndicator = ({
+  progress,
+  isCurrentLevel,
+  currentStep,
+  totalSteps,
+}: {
+  progress: number;
+  isCurrentLevel?: boolean;
+  currentStep?: number;
+  totalSteps?: number;
+}) => {
+  // Calculate the proper percentage for the progress bar
+  let progressPercentage = progress;
+
+  if (isCurrentLevel && currentStep && totalSteps && totalSteps > 0) {
+    // For current level, calculate percentage from step number
+    progressPercentage = Math.round((currentStep / totalSteps) * 100);
+  }
+
+  return (
+    <div className="flex w-full items-center gap-2 rounded-full bg-white/60 px-2 py-1 text-xs font-semibold text-placeholder-brown shadow-inner">
+      <div className="h-2 flex-1 rounded-full bg-gray-300">
+        <div
+          className="h-2 rounded-full bg-icon-green-bg"
+          style={{ width: `${progressPercentage}%` }}
+        />
+      </div>
+      <span className="font-bold">
+        {isCurrentLevel && currentStep
+          ? `Step ${currentStep}`
+          : `${progressPercentage}%`}
+      </span>
     </div>
-    <span className="font-bold">{progress}%</span>
-  </div>
-);
+  );
+};
 
 const LevelCard = ({
   level,
@@ -145,7 +169,9 @@ const LevelCard = ({
     level.status === 'unlocked' &&
     level.learningProgress > 0 &&
     level.learningProgress < 100;
-  const isTestReady = level.learningProgress >= 100 || isCompleted;
+  // Test is ready only when user has completed all learning modules
+  const isTestReady =
+    isCompleted || (level.status === 'unlocked' && level.isLearningComplete);
   const hasLives = lives > 0;
 
   // [DIUBAH] Tombol "Belajar Materi" berubah teks jika nyawa habis dan tes sudah siap
@@ -191,7 +217,12 @@ const LevelCard = ({
           />
         </div>
         {isStudying ? (
-          <ProgressIndicator progress={level.learningProgress} />
+          <ProgressIndicator
+            progress={level.learningProgress}
+            isCurrentLevel={level.status === 'unlocked'}
+            currentStep={level.currentStep}
+            totalSteps={level.totalSteps}
+          />
         ) : (
           <div className="py-1 text-sm font-semibold text-placeholder-brown">
             {level.description}
@@ -283,7 +314,8 @@ export default function EksplorasiPage() {
   const handleStudyClick = useCallback(
     (level: ProcessedExplorationLevel) => {
       const isTestReady =
-        level.learningProgress >= 100 || level.status === 'completed';
+        level.status === 'completed' ||
+        (level.status === 'unlocked' && level.isLearningComplete);
 
       // [FIX] Jika nyawa habis DAN level sudah siap tes, maka "Belajar Materi" menjadi "Ulangi Materi"
       // yang fungsinya mereset progress.
