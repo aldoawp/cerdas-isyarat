@@ -3,9 +3,18 @@ import {
   getExplorationLevelById,
   getLearningModulesByExplorationId,
   getLearningModuleById,
+  getAssessmentModulesWithOptions,
   ExplorationLevelWithAsset,
   LearningModuleWithAsset,
+  AssessmentModuleWithAsset,
+  AssessmentOptionWithAsset,
 } from '@/repositories/ekplorasi-repository';
+import {
+  Question,
+  FillInTheBlankQuestion,
+  MultipleChoiceImageQuestion,
+  QuestionOption,
+} from '@/types';
 import {
   getUserProgress,
   updateUserProgress,
@@ -285,5 +294,76 @@ export const completeExplorationLevel = async (
   } catch (error) {
     console.error('Error completing exploration level:', error);
     throw new Error('Failed to complete exploration level');
+  }
+};
+
+/**
+ * Processes assessment modules from database format to UI format
+ * @param modules - Raw assessment modules with options from database
+ * @param levelId - The level ID for the questions
+ * @returns Question[] - Processed questions for UI display
+ */
+const processAssessmentModules = (
+  modules: (AssessmentModuleWithAsset & {
+    options: AssessmentOptionWithAsset[];
+  })[],
+  levelId: number
+): Question[] => {
+  return modules.map((module, index) => {
+    const baseQuestion = {
+      id: module.assessment_id,
+      questionAsset:
+        module.question_image_url || '/images/placeholder-question.png',
+      questionText: module.question,
+      levelId,
+      order: index + 1,
+    };
+
+    if (module.question_type === 'fill in the blank') {
+      // For fill-in-the-blank questions, find the correct answer from options
+      const correctOption = module.options.find(option => option.is_correct);
+      const fillInTheBlankQuestion: FillInTheBlankQuestion = {
+        ...baseQuestion,
+        mode: 'fill-in-the-blank',
+        correctAnswer: correctOption?.text || '',
+      };
+      return fillInTheBlankQuestion;
+    } else {
+      // For multiple choice questions, process options and find correct answer
+      const processedOptions: QuestionOption[] = module.options.map(option => ({
+        id: option.option_id,
+        asset: option.image_url || '/images/placeholder-option.png',
+        label: option.text || undefined,
+      }));
+
+      const correctOption = module.options.find(option => option.is_correct);
+      const multipleChoiceQuestion: MultipleChoiceImageQuestion = {
+        ...baseQuestion,
+        mode: 'multiple-choice-image',
+        options: processedOptions,
+        correctAnswerId: correctOption?.option_id || '',
+      };
+      return multipleChoiceQuestion;
+    }
+  });
+};
+
+/**
+ * Fetches assessment questions for a specific exploration level
+ * @param explorationId - The exploration ID to fetch assessments for
+ * @param levelId - The level ID for the questions
+ * @returns Promise<Question[]> - Processed assessment questions
+ */
+export const getAssessmentQuestionsForExploration = async (
+  explorationId: string,
+  levelId: number
+): Promise<Question[]> => {
+  try {
+    const modulesWithOptions =
+      await getAssessmentModulesWithOptions(explorationId);
+    return processAssessmentModules(modulesWithOptions, levelId);
+  } catch (error) {
+    console.error('Error fetching assessment questions:', error);
+    throw new Error('Failed to load assessment questions');
   }
 };
