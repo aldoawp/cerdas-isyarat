@@ -9,7 +9,6 @@ import { MultipleChoiceImageMode } from '@/components/ekplorasi/multiple-choice-
 import { NavigationButtons } from '@/components/ekplorasi/navigation-button';
 import { ResultsModal } from '@/components/ekplorasi/result-modal';
 import { LeaveConfirmationModal } from '@/components/ekplorasi/leave-confirmation-modals';
-import { LifeNotificationModal } from '@/components/ekplorasi/life-notification-modal';
 import { useTest } from '@/lib/hooks/use-tests';
 import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
@@ -32,7 +31,6 @@ export default function TestPage() {
     finalScore,
     isLeaving,
     userLives,
-    lifeNotification,
     setIsLeaving,
     handleAnswerChange,
     navigateQuestion,
@@ -41,7 +39,6 @@ export default function TestPage() {
     handleNextLevel,
     handleBackToExplore, // [DIUBAH]
     confirmLeave,
-    closeLifeNotification,
   } = useTest(explorationId);
 
   // Validate explorationId
@@ -149,14 +146,6 @@ export default function TestPage() {
         isOpen={isLeaving}
         onConfirm={confirmLeave}
         onCancel={() => setIsLeaving(false)}
-      />
-
-      <LifeNotificationModal
-        isOpen={lifeNotification.isOpen}
-        onClose={closeLifeNotification}
-        remainingLives={lifeNotification.remainingLives}
-        hasProgressReset={lifeNotification.hasProgressReset}
-        reason={lifeNotification.reason}
       />
     </>
   );

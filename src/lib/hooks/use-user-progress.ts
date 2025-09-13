@@ -119,8 +119,8 @@ export const useUserProgress = () => {
   loadUserDataRef.current = loadUserData;
 
   const decreaseLife = useCallback(
-    async (reason: 'quit' | 'low_score' | 'time_up' = 'quit') => {
-      if (!user?.id) return { shouldResetProgress: false, remainingLives: 3 };
+    async (_reason: 'quit' | 'low_score' | 'time_up' = 'quit') => {
+      if (!user?.id) return;
 
       try {
         const { updatedProgress, shouldResetProgress } =
@@ -143,15 +143,8 @@ export const useUserProgress = () => {
         };
         setUserProfile(updatedProfile);
         localStorage.setItem(USER_KEY, JSON.stringify(updatedProfile));
-
-        return {
-          shouldResetProgress,
-          remainingLives: updatedProgress.user_lives,
-          reason,
-        };
       } catch (error_) {
         console.error('Error decreasing life:', error_);
-        return { shouldResetProgress: false, remainingLives: 3 };
       }
     },
     [user?.id, progressData, userProfile]

@@ -22,17 +22,6 @@ export const useTest = (explorationId: string) => {
   const [showResults, setShowResults] = useState(false);
   const [finalScore, setFinalScore] = useState({ score: 0, correct: 0 });
   const [isLeaving, setIsLeaving] = useState(false);
-  const [lifeNotification, setLifeNotification] = useState<{
-    isOpen: boolean;
-    remainingLives: number;
-    hasProgressReset: boolean;
-    reason: 'quit' | 'low_score' | 'time_up';
-  }>({
-    isOpen: false,
-    remainingLives: 3,
-    hasProgressReset: false,
-    reason: 'quit',
-  });
   const hasFetched = useRef(false);
 
   // Fetch questions from database
@@ -107,13 +96,7 @@ export const useTest = (explorationId: string) => {
 
     // Check if score is below 80% (minimum required score)
     if (score < 80) {
-      const lifeResult = await decreaseLife('low_score');
-      setLifeNotification({
-        isOpen: true,
-        remainingLives: lifeResult.remainingLives,
-        hasProgressReset: lifeResult.shouldResetProgress,
-        reason: 'low_score',
-      });
+      await decreaseLife('low_score');
     }
 
     setFinalScore({ score, correct: correctCount });
@@ -122,13 +105,7 @@ export const useTest = (explorationId: string) => {
   }, [testState, questions, explorationId, decreaseLife]);
 
   const handleTimeUp = useCallback(async () => {
-    const lifeResult = await decreaseLife('time_up');
-    setLifeNotification({
-      isOpen: true,
-      remainingLives: lifeResult.remainingLives,
-      hasProgressReset: lifeResult.shouldResetProgress,
-      reason: 'time_up',
-    });
+    await decreaseLife('time_up');
     calculateAndFinalize();
   }, [calculateAndFinalize, decreaseLife]);
 
@@ -215,19 +192,9 @@ export const useTest = (explorationId: string) => {
   };
 
   const confirmLeave = async () => {
-    const lifeResult = await decreaseLife('quit');
-    setLifeNotification({
-      isOpen: true,
-      remainingLives: lifeResult.remainingLives,
-      hasProgressReset: lifeResult.shouldResetProgress,
-      reason: 'quit',
-    });
+    await decreaseLife('quit');
     localStorage.removeItem(`testState_exploration_${explorationId}`);
     router.push('/eksplorasi');
-  };
-
-  const closeLifeNotification = () => {
-    setLifeNotification(prev => ({ ...prev, isOpen: false }));
   };
 
   return {
@@ -239,7 +206,6 @@ export const useTest = (explorationId: string) => {
     finalScore,
     isLeaving,
     userLives: userProfile.lives ?? 3,
-    lifeNotification,
     setIsLeaving,
     handleAnswerChange,
     navigateQuestion,
@@ -248,6 +214,5 @@ export const useTest = (explorationId: string) => {
     handleNextLevel,
     handleBackToExplore,
     confirmLeave,
-    closeLifeNotification,
   };
 };
