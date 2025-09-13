@@ -3,6 +3,9 @@ import {
   createUserProgress,
   updateUserProgress,
   upsertUserProgress,
+  decreaseUserLives,
+  regenerateUserLives,
+  resetUserExplorationProgress,
   type UserProgress,
 } from '@/repositories/users-progress-repository';
 
@@ -39,9 +42,8 @@ export const calculateUserProgress = (
   const totalLevels = 5; // Assuming 5 total levels in exploration
   const xp = Math.round((dbProgress.exploration_progress / totalLevels) * 100);
 
-  // Lives can be a simple system - for now, keep it at 3
-  // This can be enhanced later with more complex logic
-  const lives = 3;
+  // Use actual lives from database
+  const lives = dbProgress.user_lives;
 
   return {
     explorationLevel: dbProgress.exploration_level,
@@ -107,30 +109,21 @@ export const updateUserGuessingChallengeScore = async (
 export const refillUserLives = async (
   userId: string
 ): Promise<UserProgress> => {
-  // For now, lives are always 3, so this function just returns current progress
-  // This can be enhanced later with a separate lives tracking system
-  const currentProgress = await getUserProgress(userId);
-
-  if (!currentProgress) {
-    return createUserProgress({
-      userId,
-      explorationLevel: 1,
-      explorationProgress: 0,
-      guessingChallengeScore: 0,
-    });
-  }
-
-  // Return current progress unchanged since lives are always 3
-  return currentProgress;
+  return regenerateUserLives(userId);
 };
 
 export const completeLevel = async (
   userId: string,
   levelId: number
 ): Promise<UserProgress> => {
-  // Move user to the next level, step 0
+  // Move user to the next level, step 0 and regenerate lives to full
   const nextLevel = levelId + 1;
-  return updateUserExplorationProgress(userId, nextLevel, 0);
+  return updateUserProgress({
+    userId,
+    explorationLevel: nextLevel,
+    explorationProgress: 0,
+    userLives: 3,
+  });
 };
 
 export const updateUserStep = async (
@@ -140,4 +133,23 @@ export const updateUserStep = async (
 ): Promise<UserProgress> => {
   // Update user's current step within a level
   return updateUserExplorationProgress(userId, level, step);
+};
+
+/**
+ * Decreases user lives and handles progress reset if lives reach zero
+ * @param userId - The user ID
+ * @returns Promise<{ updatedProgress: UserProgress; shouldResetProgress: boolean }>
+ */
+export const decreaseUserLivesWithProgressReset = async (
+  userId: string
+): Promise<{ updatedProgress: UserProgress; shouldResetProgress: boolean }> => {
+  const updatedProgress = await decreaseUserLives(userId);
+
+  // If lives reach zero, reset exploration progress
+  if (updatedProgress.user_lives === 0) {
+    const resetProgress = await resetUserExplorationProgress(userId);
+    return { updatedProgress: resetProgress, shouldResetProgress: true };
+  }
+
+  return { updatedProgress, shouldResetProgress: false };
 };

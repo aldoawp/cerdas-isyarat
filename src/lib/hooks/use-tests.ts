@@ -80,7 +80,7 @@ export const useTest = (explorationId: string) => {
     );
   }, [explorationId]);
 
-  const calculateAndFinalize = useCallback(() => {
+  const calculateAndFinalize = useCallback(async () => {
     if (!testState) return;
     let correctCount = 0;
     for (const q of questions) {
@@ -93,16 +93,19 @@ export const useTest = (explorationId: string) => {
       }
     }
     const score = Math.round((correctCount / questions.length) * 100);
-    if (score < 75) {
-      decreaseLife();
+
+    // Check if score is below 80% (minimum required score)
+    if (score < 80) {
+      await decreaseLife('low_score');
     }
+
     setFinalScore({ score, correct: correctCount });
     setShowResults(true);
     localStorage.removeItem(`testState_exploration_${explorationId}`);
   }, [testState, questions, explorationId, decreaseLife]);
 
-  const handleTimeUp = useCallback(() => {
-    decreaseLife();
+  const handleTimeUp = useCallback(async () => {
+    await decreaseLife('time_up');
     calculateAndFinalize();
   }, [calculateAndFinalize, decreaseLife]);
 
@@ -188,8 +191,8 @@ export const useTest = (explorationId: string) => {
     router.push('/eksplorasi');
   };
 
-  const confirmLeave = () => {
-    decreaseLife();
+  const confirmLeave = async () => {
+    await decreaseLife('quit');
     localStorage.removeItem(`testState_exploration_${explorationId}`);
     router.push('/eksplorasi');
   };
