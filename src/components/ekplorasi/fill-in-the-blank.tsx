@@ -25,7 +25,10 @@ export const FillInTheBlankMode = ({
 
   return (
     <div className="space-y-4">
-      <QuestionDisplay questionAsset={question.questionAsset} />
+      <QuestionDisplay
+        questionAsset={question.questionAsset}
+        questionText={question.questionText}
+      />
       <div className="flex items-center justify-center gap-2">
         {Array.from({ length: answerLength }).map((_, i) => (
           <div
