@@ -7,6 +7,7 @@ import {
   refillUserLives,
   completeLevel,
   updateUserStep,
+  decreaseUserLivesWithProgressReset,
   type UserProgressData,
 } from '@/services/users-progress-service';
 
@@ -117,17 +118,44 @@ export const useUserProgress = () => {
   // Store the function in ref to avoid dependency issues
   loadUserDataRef.current = loadUserData;
 
-  const decreaseLife = useCallback(async () => {
-    if (!user?.id) return;
+  const decreaseLife = useCallback(
+    async (reason: 'quit' | 'low_score' | 'time_up' = 'quit') => {
+      if (!user?.id) return { shouldResetProgress: false, remainingLives: 3 };
 
-    try {
-      // For now, lives are always 3, so this function doesn't need to do anything
-      // This can be enhanced later with a separate lives tracking system
-      console.log('Life decreased (lives system not implemented yet)');
-    } catch (error_) {
-      console.error('Error decreasing life:', error_);
-    }
-  }, [user?.id]);
+      try {
+        const { updatedProgress, shouldResetProgress } =
+          await decreaseUserLivesWithProgressReset(user.id);
+
+        // Update local state
+        const newProgressData = {
+          ...progressData,
+          lives: updatedProgress.user_lives,
+          explorationProgress: shouldResetProgress
+            ? 0
+            : progressData.explorationProgress,
+        };
+        setProgressData(newProgressData);
+
+        // Update user profile with new lives
+        const updatedProfile = {
+          ...userProfile,
+          lives: updatedProgress.user_lives,
+        };
+        setUserProfile(updatedProfile);
+        localStorage.setItem(USER_KEY, JSON.stringify(updatedProfile));
+
+        return {
+          shouldResetProgress,
+          remainingLives: updatedProgress.user_lives,
+          reason,
+        };
+      } catch (error_) {
+        console.error('Error decreasing life:', error_);
+        return { shouldResetProgress: false, remainingLives: 3 };
+      }
+    },
+    [user?.id, progressData, userProfile]
+  );
 
   const refillLives = useCallback(async () => {
     if (!user?.id) return;
