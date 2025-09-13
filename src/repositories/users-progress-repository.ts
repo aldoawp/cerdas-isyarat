@@ -6,6 +6,7 @@ export interface UserProgress {
   exploration_level: number;
   exploration_progress: number;
   guessing_challenge_score: number;
+  user_lives: number;
   created_at: string;
   updated_at: string;
 }
@@ -15,6 +16,7 @@ export interface CreateUserProgressParams {
   explorationLevel?: number;
   explorationProgress?: number;
   guessingChallengeScore?: number;
+  userLives?: number;
 }
 
 export interface UpdateUserProgressParams {
@@ -22,6 +24,7 @@ export interface UpdateUserProgressParams {
   explorationLevel?: number;
   explorationProgress?: number;
   guessingChallengeScore?: number;
+  userLives?: number;
 }
 
 export const getUserProgress = async (
@@ -56,6 +59,7 @@ export const createUserProgress = async (
       exploration_level: params.explorationLevel ?? 1,
       exploration_progress: params.explorationProgress ?? 0,
       guessing_challenge_score: params.guessingChallengeScore ?? 0,
+      user_lives: params.userLives ?? 3,
     })
     .select()
     .single();
@@ -84,6 +88,9 @@ export const updateUserProgress = async (
   if (params.guessingChallengeScore !== undefined) {
     updateData.guessing_challenge_score = params.guessingChallengeScore;
   }
+  if (params.userLives !== undefined) {
+    updateData.user_lives = params.userLives;
+  }
 
   const { data, error } = await supabase
     .from('users_progress')
@@ -104,4 +111,55 @@ export const upsertUserProgress = async (
   return existingProgress
     ? updateUserProgress(params)
     : createUserProgress(params);
+};
+
+/**
+ * Decreases user lives by 1 and returns updated progress
+ */
+export const decreaseUserLives = async (
+  userId: string
+): Promise<UserProgress> => {
+  const currentProgress = await getUserProgress(userId);
+
+  if (!currentProgress) {
+    // Create new progress with 2 lives (3 - 1)
+    return createUserProgress({
+      userId,
+      explorationLevel: 1,
+      explorationProgress: 0,
+      guessingChallengeScore: 0,
+      userLives: 2,
+    });
+  }
+
+  const newLives = Math.max(0, currentProgress.user_lives - 1);
+
+  return updateUserProgress({
+    userId,
+    userLives: newLives,
+  });
+};
+
+/**
+ * Resets user lives to 3 (full regeneration)
+ */
+export const regenerateUserLives = async (
+  userId: string
+): Promise<UserProgress> => {
+  return updateUserProgress({
+    userId,
+    userLives: 3,
+  });
+};
+
+/**
+ * Resets user exploration progress to 0
+ */
+export const resetUserExplorationProgress = async (
+  userId: string
+): Promise<UserProgress> => {
+  return updateUserProgress({
+    userId,
+    explorationProgress: 0,
+  });
 };
