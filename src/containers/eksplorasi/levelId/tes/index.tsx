@@ -17,12 +17,15 @@ export default function TestPage() {
   const params = useParams();
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
-  const levelId = Number(params.levelId);
+
+  // Get explorationId from URL params (it's actually a UUID, not a number)
+  const explorationId = params.levelId as string;
 
   // Memanggil semua state dan fungsi dari satu tempat!
   const {
     testState,
     questions,
+    questionsLoading,
     timeLeft,
     showResults,
     finalScore,
@@ -36,7 +39,27 @@ export default function TestPage() {
     handleNextLevel,
     handleBackToExplore, // [DIUBAH]
     confirmLeave,
-  } = useTest(levelId);
+  } = useTest(explorationId);
+
+  // Validate explorationId
+  if (!explorationId || typeof explorationId !== 'string') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+        <div className="text-center">
+          <div className="mb-4 text-6xl">❌</div>
+          <div className="text-2xl font-bold text-brand-brown-stroke">
+            Level tidak valid
+          </div>
+          <div className="mt-2 text-lg text-gray-600">
+            Parameter level tidak ditemukan atau tidak valid
+          </div>
+          <div className="mt-2 text-sm text-gray-500">
+            Debug: explorationId = &quot;{explorationId}&quot;
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show loading screen while page is loading or checking authentication
   if (isPageLoading || authLoading) {
@@ -44,13 +67,13 @@ export default function TestPage() {
   }
 
   // Tampilan Loading
-  if (!testState || questions.length === 0) {
+  if (questionsLoading || !testState || questions.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
         <div className="text-center">
           <div className="mb-4 text-6xl">⏳</div>
           <div className="text-2xl font-bold text-brand-brown-stroke">
-            Memuat Tes...
+            {questionsLoading ? 'Memuat Soal...' : 'Memuat Tes...'}
           </div>
         </div>
       </div>

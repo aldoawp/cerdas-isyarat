@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react'; // [DIPERBAIKI] Tambahkan 'useMemo'
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserProgress } from './use-user-progress';
-import { testBank, TEST_DURATION_MS } from '@/dummy/test-bank';
-import { TestSession } from '@/types';
+import { getAssessmentQuestionsForExploration } from '@/services/ekplorasi-service';
+import { getExplorationLevelById } from '@/repositories/ekplorasi-repository';
+import { TestSession, Question } from '@/types';
 
-export const useTest = (levelId: number) => {
+export const TEST_DURATION_MS = 30 * 60 * 1000; // 30 menit
+
+export const useTest = (explorationId: string) => {
   const router = useRouter();
   const { userProfile, decreaseLife, completeLevelAction } = useUserProgress();
 
-  // [DIPERBAIKI] Gunakan useMemo untuk menstabilkan referensi 'questions'
-  const questions = useMemo(() => testBank[levelId] || [], [levelId]);
-
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
   const [testState, setTestState] = useState<TestSession | undefined>(
     undefined
   );
@@ -20,20 +22,63 @@ export const useTest = (levelId: number) => {
   const [showResults, setShowResults] = useState(false);
   const [finalScore, setFinalScore] = useState({ score: 0, correct: 0 });
   const [isLeaving, setIsLeaving] = useState(false);
+  const hasFetched = useRef(false);
+
+  // Fetch questions from database
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        setQuestionsLoading(true);
+
+        // Validate explorationId before making the request
+        if (!explorationId || typeof explorationId !== 'string') {
+          throw new Error(`Invalid explorationId: ${explorationId}`);
+        }
+
+        // First, get the exploration level to get the level number
+        const explorationLevel = await getExplorationLevelById(explorationId);
+        if (!explorationLevel) {
+          throw new Error(`Exploration level ${explorationId} not found`);
+        }
+
+        // Then fetch the assessment questions
+        const assessmentQuestions = await getAssessmentQuestionsForExploration(
+          explorationId,
+          explorationLevel.levels
+        );
+
+        setQuestions(assessmentQuestions);
+      } catch (error) {
+        console.error('Error fetching assessment questions:', error);
+        // Fallback to empty array if there's an error
+        setQuestions([]);
+      } finally {
+        setQuestionsLoading(false);
+      }
+    };
+
+    // Only fetch if we have a valid explorationId and haven't fetched yet
+    if (explorationId && !hasFetched.current) {
+      hasFetched.current = true;
+      fetchQuestions();
+    }
+  }, [explorationId]);
 
   useEffect(() => {
-    const savedStateRaw = localStorage.getItem(`testState_level_${levelId}`);
+    const savedStateRaw = localStorage.getItem(
+      `testState_exploration_${explorationId}`
+    );
     setTestState(
       savedStateRaw
         ? JSON.parse(savedStateRaw)
         : {
-            levelId,
+            levelId: 0, // We'll get the actual level number from the exploration data
             currentQuestionIndex: 0,
             answers: {},
             startTime: Date.now(),
           }
     );
-  }, [levelId]);
+  }, [explorationId]);
 
   const calculateAndFinalize = useCallback(() => {
     if (!testState) return;
@@ -53,8 +98,8 @@ export const useTest = (levelId: number) => {
     }
     setFinalScore({ score, correct: correctCount });
     setShowResults(true);
-    localStorage.removeItem(`testState_level_${levelId}`);
-  }, [testState, questions, levelId, decreaseLife]);
+    localStorage.removeItem(`testState_exploration_${explorationId}`);
+  }, [testState, questions, explorationId, decreaseLife]);
 
   const handleTimeUp = useCallback(() => {
     decreaseLife();
@@ -78,11 +123,11 @@ export const useTest = (levelId: number) => {
   useEffect(() => {
     if (testState && !showResults) {
       localStorage.setItem(
-        `testState_level_${levelId}`,
+        `testState_exploration_${explorationId}`,
         JSON.stringify(testState)
       );
     }
-  }, [testState, levelId, showResults]);
+  }, [testState, explorationId, showResults]);
 
   const handleSubmitTest = useCallback(() => {
     calculateAndFinalize();
@@ -113,12 +158,29 @@ export const useTest = (levelId: number) => {
     });
   };
   const handleRetry = () => {
-    localStorage.removeItem(`testState_level_${levelId}`);
+    localStorage.removeItem(`testState_exploration_${explorationId}`);
     globalThis.location.reload();
   };
 
-  const handleNextLevel = () => {
-    completeLevelAction(levelId);
+  const handleNextLevel = async () => {
+    try {
+      // Get the actual level number from the exploration data
+      const explorationLevel = await getExplorationLevelById(explorationId);
+      if (explorationLevel) {
+        completeLevelAction(explorationLevel.levels);
+      } else {
+        console.error(
+          'Could not find exploration level for ID:',
+          explorationId
+        );
+        // Fallback to level 1 if we can't find the level
+        completeLevelAction(1);
+      }
+    } catch (error) {
+      console.error('Error getting exploration level:', error);
+      // Fallback to level 1 if there's an error
+      completeLevelAction(1);
+    }
     router.push('/eksplorasi');
   };
 
@@ -128,13 +190,14 @@ export const useTest = (levelId: number) => {
 
   const confirmLeave = () => {
     decreaseLife();
-    localStorage.removeItem(`testState_level_${levelId}`);
+    localStorage.removeItem(`testState_exploration_${explorationId}`);
     router.push('/eksplorasi');
   };
 
   return {
     testState,
     questions,
+    questionsLoading,
     timeLeft,
     showResults,
     finalScore,

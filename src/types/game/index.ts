@@ -19,9 +19,10 @@ export interface MateriItem {
 export type QuestionMode = 'fill-in-the-blank' | 'multiple-choice-image';
 
 export interface BaseQuestion {
-  id: number;
+  id: string;
   mode: QuestionMode;
   questionAsset: string;
+  questionText?: string;
   levelId: number;
   order: number;
 }
@@ -51,7 +52,7 @@ export interface TestSession {
   levelId: number;
   userId: string;
   currentQuestionIndex: number;
-  answers: Record<number, string>;
+  answers: Record<string, string>;
   startTime: number;
   endTime?: number;
   score?: number;
