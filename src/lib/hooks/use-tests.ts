@@ -162,10 +162,25 @@ export const useTest = (explorationId: string) => {
     globalThis.location.reload();
   };
 
-  const handleNextLevel = () => {
-    // We need to get the actual level number from the exploration data
-    // For now, we'll use a placeholder - this should be improved
-    completeLevelAction(1); // TODO: Get actual level number
+  const handleNextLevel = async () => {
+    try {
+      // Get the actual level number from the exploration data
+      const explorationLevel = await getExplorationLevelById(explorationId);
+      if (explorationLevel) {
+        completeLevelAction(explorationLevel.levels);
+      } else {
+        console.error(
+          'Could not find exploration level for ID:',
+          explorationId
+        );
+        // Fallback to level 1 if we can't find the level
+        completeLevelAction(1);
+      }
+    } catch (error) {
+      console.error('Error getting exploration level:', error);
+      // Fallback to level 1 if there's an error
+      completeLevelAction(1);
+    }
     router.push('/eksplorasi');
   };
 
