@@ -33,6 +33,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'oohuotwgnjzvmuargbye.supabase.co',
       },
+      {
+        protocol: 'https',
+        hostname: 'dummyimage.com',
+      },
     ],
   },
 
