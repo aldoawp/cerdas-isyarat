@@ -1,62 +1,137 @@
 import { Movement } from '@/types';
 
-export const mockMovements: Movement[] = [
+// Palet warna ceria yang digunakan (Anda bisa mengubahnya sesuai selera)
+// Merah: FF5733, Oranye: FFC300, Hijau: 2ECC71, Biru: 3498DB, Ungu: 9B59B6
+
+export const aslAlphabetMovements: Movement[] = [
   {
     id: 1,
-    name: 'Kucing',
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Cat03.jpg',
+    name: 'A',
+    imageUrl: 'https://dummyimage.com/200x200/FF5733/ffffff&text=A',
   },
   {
     id: 2,
-    name: 'Anjing',
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/3/32/Golden_Retriever_Carlos_%2810509950996%29.jpg',
+    name: 'B',
+    imageUrl: 'https://dummyimage.com/200x200/FFC300/ffffff&text=B',
   },
   {
     id: 3,
-    name: 'Makan',
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/b/b5/Eating_sushi_in_a_Japanese_restaurant.jpg',
+    name: 'C',
+    imageUrl: 'https://dummyimage.com/200x200/2ECC71/ffffff&text=C',
   },
   {
     id: 4,
-    name: 'Tidur',
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/4/4d/Sleeping_cat_on_her_back.jpg',
+    name: 'D',
+    imageUrl: 'https://dummyimage.com/200x200/3498DB/ffffff&text=D',
   },
   {
     id: 5,
-    name: 'Minum',
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/1/14/Drinking_water_glass.jpg',
+    name: 'E',
+    imageUrl: 'https://dummyimage.com/200x200/9B59B6/ffffff&text=E',
   },
   {
     id: 6,
-    name: 'Mobil',
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/0/0f/Blue_tesla_model_3.jpg',
-  },
+    name: 'F',
+    imageUrl: 'https://dummyimage.com/200x200/FF5733/ffffff&text=F',
+  }, // Warna berulang
   {
     id: 7,
-    name: 'Sepeda',
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/d/da/Cyclist_on_bike.jpg',
+    name: 'G',
+    imageUrl: 'https://dummyimage.com/200x200/FFC300/ffffff&text=G',
   },
   {
     id: 8,
-    name: 'Sekolah',
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/a/a2/Primary_school_classroom_in_Tanzania.jpg',
+    name: 'H',
+    imageUrl: 'https://dummyimage.com/200x200/2ECC71/ffffff&text=H',
   },
   {
     id: 9,
-    name: 'Buku',
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/8/89/Book.jpg',
+    name: 'I',
+    imageUrl: 'https://dummyimage.com/200x200/3498DB/ffffff&text=I',
   },
   {
     id: 10,
-    name: 'Pohon',
-    imageUrl:
-      'https://upload.wikimedia.org/wikipedia/commons/f/f6/Oak_tree.jpg',
+    name: 'J',
+    imageUrl: 'https://dummyimage.com/200x200/9B59B6/ffffff&text=J',
   },
+  {
+    id: 11,
+    name: 'K',
+    imageUrl: 'https://dummyimage.com/200x200/FF5733/ffffff&text=K',
+  }, // Warna berulang
+  {
+    id: 12,
+    name: 'L',
+    imageUrl: 'https://dummyimage.com/200x200/FFC300/ffffff&text=L',
+  },
+  {
+    id: 13,
+    name: 'M',
+    imageUrl: 'https://dummyimage.com/200x200/2ECC71/ffffff&text=M',
+  },
+  {
+    id: 14,
+    name: 'N',
+    imageUrl: 'https://dummyimage.com/200x200/3498DB/ffffff&text=N',
+  },
+  {
+    id: 15,
+    name: 'O',
+    imageUrl: 'https://dummyimage.com/200x200/9B59B6/ffffff&text=O',
+  },
+  {
+    id: 16,
+    name: 'P',
+    imageUrl: 'https://dummyimage.com/200x200/FF5733/ffffff&text=P',
+  }, // Warna berulang
+  {
+    id: 17,
+    name: 'Q',
+    imageUrl: 'https://dummyimage.com/200x200/FFC300/ffffff&text=Q',
+  },
+  {
+    id: 18,
+    name: 'R',
+    imageUrl: 'https://dummyimage.com/200x200/2ECC71/ffffff&text=R',
+  },
+  {
+    id: 19,
+    name: 'S',
+    imageUrl: 'https://dummyimage.com/200x200/3498DB/ffffff&text=S',
+  },
+  {
+    id: 20,
+    name: 'T',
+    imageUrl: 'https://dummyimage.com/200x200/9B59B6/ffffff&text=T',
+  },
+  {
+    id: 21,
+    name: 'U',
+    imageUrl: 'https://dummyimage.com/200x200/FF5733/ffffff&text=U',
+  }, // Warna berulang
+  {
+    id: 22,
+    name: 'V',
+    imageUrl: 'https://dummyimage.com/200x200/FFC300/ffffff&text=V',
+  },
+  {
+    id: 23,
+    name: 'W',
+    imageUrl: 'https://dummyimage.com/200x200/2ECC71/ffffff&text=W',
+  },
+  {
+    id: 24,
+    name: 'X',
+    imageUrl: 'https://dummyimage.com/200x200/3498DB/ffffff&text=X',
+  },
+  {
+    id: 25,
+    name: 'Y',
+    imageUrl: 'https://dummyimage.com/200x200/9B59B6/ffffff&text=Y',
+  },
+  {
+    id: 26,
+    name: 'Z',
+    imageUrl: 'https://dummyimage.com/200x200/FF5733/ffffff&text=Z',
+  }, // Warna berulang
 ];

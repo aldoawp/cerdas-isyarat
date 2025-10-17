@@ -11,6 +11,8 @@ import InstructionCard from '@/components/intro-tebak-gerakan/instruction-card';
 import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
 
+import RulesModal from '@/components/tebak-gerakan/rules-modal';
+
 export default function IntroTebakGerakanPage() {
   const router = useRouter();
   const { loading: authLoading } = useRequireAuth();
@@ -27,6 +29,8 @@ export default function IntroTebakGerakanPage() {
     []
   );
   const [currentCameraId, setCurrentCameraId] = useState<string>('');
+
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
 
   const getAvailableCameras = useCallback(async () => {
     try {
@@ -49,26 +53,37 @@ export default function IntroTebakGerakanPage() {
     getAvailableCameras();
   }, [getAvailableCameras]);
 
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      for (const track of streamRef.current.getTracks()) {
+        track.stop();
+      }
+      streamRef.current = undefined;
+    }
+    if (videoRef.current) {
+      // eslint-disable-next-line unicorn/no-null
+      (videoRef.current as HTMLVideoElement).srcObject = null;
+    }
+    setIsCameraActive(false);
+    setError(undefined);
+  }, []);
+
   const activateCamera = async (deviceId?: string) => {
     setError(undefined);
     setIsActivatingCamera(true);
-
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError('Browser kamu tidak mendukung akses kamera.');
       setIsActivatingCamera(false);
       return;
     }
-
     if (!videoRef.current) {
       setTimeout(() => activateCamera(deviceId), 200);
       return;
     }
-
     if (streamRef.current) {
       for (const track of streamRef.current.getTracks()) track.stop();
       streamRef.current = undefined;
     }
-
     const constraints: MediaStreamConstraints = {
       video: {
         width: { ideal: 640 },
@@ -76,7 +91,6 @@ export default function IntroTebakGerakanPage() {
         frameRate: { ideal: 30 },
       },
     };
-
     const selectedDeviceId = deviceId || currentCameraId;
     if (constraints.video && typeof constraints.video === 'object') {
       if (selectedDeviceId) {
@@ -85,12 +99,10 @@ export default function IntroTebakGerakanPage() {
         constraints.video.facingMode = 'user';
       }
     }
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       const videoElement = videoRef.current;
-
       videoElement.srcObject = stream;
       videoElement.addEventListener('loadedmetadata', () => {
         videoElement
@@ -111,41 +123,22 @@ export default function IntroTebakGerakanPage() {
         switch (error_.name) {
           case 'NotAllowedError': {
             errorMessage += 'Pastikan kamu sudah memberikan izin akses kamera.';
-
             break;
           }
           case 'NotFoundError': {
             errorMessage += 'Kamera tidak ditemukan di perangkat kamu.';
-
             break;
           }
           case 'NotReadableError': {
             errorMessage += 'Kamera mungkin sedang digunakan aplikasi lain.';
-
             break;
           }
-          // No default
         }
       }
       setError(errorMessage);
       setIsCameraActive(false);
       setIsActivatingCamera(false);
     }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      for (const track of streamRef.current.getTracks()) track.stop();
-      streamRef.current = undefined;
-    }
-    if (videoRef.current) {
-      // [DIPERBAIKI] Diubah kembali ke null sesuai tipe DOM API
-      // dan aturan ESLint dimatikan untuk baris ini.
-      // eslint-disable-next-line unicorn/no-null
-      videoRef.current.srcObject = null;
-    }
-    setIsCameraActive(false);
-    setError(undefined);
   };
 
   const switchCamera = () => {
@@ -163,19 +156,36 @@ export default function IntroTebakGerakanPage() {
     return () => {
       stopCamera();
     };
-  }, []);
+  }, [stopCamera]);
 
   const handleBack = () => {
     router.push('/onboarding');
   };
 
-  // Show loading screen while page is loading or checking authentication
+  const handleStartGame = () => {
+    setIsRulesModalOpen(true);
+  };
+
+  const confirmAndStartGame = () => {
+    setIsRulesModalOpen(false);
+    stopCamera();
+    setTimeout(() => {
+      router.push('/tebak-gerakan');
+    }, 200);
+  };
+
   if (isPageLoading || authLoading) {
     return <LoadingScreen message="Halaman sedang dimuat..." />;
   }
 
   return (
     <div className="min-h-screen bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+      <RulesModal
+        isOpen={isRulesModalOpen}
+        onConfirm={confirmAndStartGame}
+        onCancel={() => setIsRulesModalOpen(false)}
+      />
+
       <div className="flex min-h-screen flex-col">
         <header className="fixed inset-x-0 top-0 z-30 bg-gradient-to-b from-black/10 to-transparent p-4">
           <div className="flex items-center justify-between">
@@ -296,7 +306,6 @@ export default function IntroTebakGerakanPage() {
                   </div>
                 )}
               </InstructionCard>
-
               <InstructionCard step="2" title="LIHAT GERAKAN">
                 <div className="mx-auto flex aspect-square w-full max-w-[200px] items-center justify-center rounded-2xl border-2 border-orange-200/50 bg-gradient-to-br from-orange-100/50 to-yellow-100/50 shadow-inner">
                   <Image
@@ -308,7 +317,6 @@ export default function IntroTebakGerakanPage() {
                   />
                 </div>
               </InstructionCard>
-
               <InstructionCard step="3" title="TIRU & DAPATKAN POIN">
                 <div className="mx-auto flex aspect-square w-full max-w-[200px] items-center justify-center rounded-2xl border-2 border-orange-200/50 bg-gradient-to-br from-orange-100/50 to-yellow-100/50 shadow-inner">
                   <p className="text-5xl font-bold text-brand-brown-stroke">
@@ -318,10 +326,9 @@ export default function IntroTebakGerakanPage() {
               </InstructionCard>
             </div>
           </div>
-
           <div className="text-center">
             <button
-              onClick={() => router.push('/tebak-gerakan')}
+              onClick={handleStartGame}
               disabled={!isCameraActive}
               className="rounded-full bg-gradient-to-r from-orange-400 to-yellow-500 px-8 py-3 font-comic text-xl font-bold text-white shadow-xl transition-all hover:scale-105 disabled:cursor-not-allowed disabled:grayscale disabled:hover:scale-100"
             >
@@ -329,7 +336,6 @@ export default function IntroTebakGerakanPage() {
             </button>
           </div>
         </main>
-
         {isMascotVisible && (
           <div className="pointer-events-none fixed bottom-0 right-0 z-20 w-32 md:w-48">
             <div className="relative">
