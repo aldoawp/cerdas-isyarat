@@ -29,7 +29,8 @@ export const FloatingMascot = () => {
   }, []); // Dependency array sekarang bisa kosong karena 'encouragements' stabil
 
   return (
-    <div className="fixed bottom-6 right-6 z-30 animate-bounce">
+    // [DIUBAH] Posisi dipindahkan ke kiri bawah
+    <div className="fixed bottom-6 left-6 z-30 animate-bounce">
       <div className="relative">
         <div className="mb-2 rounded-2xl bg-white px-4 py-2 shadow-lg">
           <div className="flex items-center gap-2">

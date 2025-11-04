@@ -37,7 +37,7 @@ export default function TestPage() {
     handleSubmitTest,
     handleRetry,
     handleNextLevel,
-    handleBackToExplore, // [DIUBAH]
+    handleBackToExplore,
     confirmLeave,
   } = useTest(explorationId);
 
@@ -84,7 +84,9 @@ export default function TestPage() {
   const currentQuestion = questions[testState.currentQuestionIndex];
   const minutes = Math.floor((timeLeft / 1000 / 60) % 60);
   const seconds = Math.floor((timeLeft / 1000) % 60);
-  const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  const formattedTime = `${String(minutes).padStart(2, '0')}:${String(
+    seconds
+  ).padStart(2, '0')}`;
   const isFirstQuestion = testState.currentQuestionIndex === 0;
   const isLastQuestion =
     testState.currentQuestionIndex === questions.length - 1;
@@ -97,10 +99,22 @@ export default function TestPage() {
           <GameHeader
             currentIndex={testState.currentQuestionIndex}
             totalQuestions={questions.length}
-            timeLeft={formattedTime}
             onBackClick={() => setIsLeaving(true)}
           />
-          <main className="flex flex-1 animate-fade-in-up flex-col items-center justify-center space-y-6 p-4">
+          <main className="flex flex-1 animate-fade-in-up flex-col items-center space-y-4 p-4 md:space-y-6">
+            {/* [TIMER] Dipindahkan ke sini */}
+            <div className="flex w-full max-w-4xl justify-center">
+              <div className="rounded-full bg-gradient-to-r from-purple-500 to-pink-500 p-1 shadow-lg">
+                {/* [DIKECILKAN] Padding, min-width, dan font-size dikurangi */}
+                <div className="min-w-[100px] rounded-full bg-white px-4 py-1 text-center">
+                  <div className="text-xs font-medium text-gray-600">Waktu</div>
+                  <div className="text-lg font-bold text-gray-800">
+                    {formattedTime}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="w-full max-w-4xl">
               {currentQuestion.mode === 'fill-in-the-blank' && (
                 <FillInTheBlankMode
@@ -137,7 +151,7 @@ export default function TestPage() {
           totalQuestions={questions.length}
           onRetry={handleRetry}
           onNextLevel={handleNextLevel}
-          onBackToExplore={handleBackToExplore} // [DIUBAH]
+          onBackToExplore={handleBackToExplore}
           lives={userLives}
         />
       )}

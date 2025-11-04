@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useLayoutEffect, // 1. TAMBAHKAN INI
+} from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/shared/backbutton/backbutton';
@@ -43,6 +49,24 @@ const HAND_CONNECTIONS: [number, number][] = [
   [19, 20],
 ];
 
+// 2. TAMBAHKAN HOOK INI (Default 'lg' breakpoint Tailwind adalah 1024px)
+const useIsDesktop = (breakpoint = 1024) => {
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useLayoutEffect(() => {
+    const updateMedia = () => {
+      setIsDesktop(window.innerWidth >= breakpoint);
+    };
+
+    updateMedia(); // Set nilai awal saat komponen dimuat di client
+
+    window.addEventListener('resize', updateMedia);
+    return () => window.removeEventListener('resize', updateMedia);
+  }, [breakpoint]);
+
+  return isDesktop;
+};
+
 const TOTAL_TIME_SECONDS = 5 * 60;
 const MOVEMENT_THRESHOLD = 0.08;
 const STILLNESS_FRAMES_TRIGGER = 30;
@@ -54,8 +78,10 @@ export default function TebakGerakanPage() {
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
 
-  const videoRef = useRef<HTMLVideoElement | undefined>(undefined);
-  const canvasRef = useRef<HTMLCanvasElement | undefined>(undefined);
+  const isDesktop = useIsDesktop(); // 3. PANGGIL HOOKNYA
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | undefined>(undefined);
   const animationFrameIdRef = useRef<number | undefined>(undefined);
   const latestLandmarksRef = useRef<number[]>([]);
@@ -125,8 +151,8 @@ export default function TebakGerakanPage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 480 },
-          height: { ideal: 360 },
+          width: { ideal: 640 },
+          height: { ideal: 480 },
           facingMode: 'user',
         },
       });
@@ -134,19 +160,41 @@ export default function TebakGerakanPage() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.addEventListener('loadedmetadata', () => {
-          videoRef.current
-            ?.play()
-            .then(() => {
-              setIsCameraReady(true);
-              setShowPermissionModal(false);
-            })
-            .catch(error => {
-              // eslint-disable-next-line no-console
-              console.error('Error playing video:', error);
-              setShowPermissionModal(true);
-            });
-        });
+
+        const handleLoadedMetadata = () => {
+          if (videoRef.current) {
+            videoRef.current
+              .play()
+              .then(() => {
+                console.log('✅ Video playing');
+                console.log(
+                  'Video dimensions:',
+                  videoRef.current?.videoWidth,
+                  'x',
+                  videoRef.current?.videoHeight
+                );
+                console.log('Video element:', videoRef.current);
+                console.log(
+                  'Computed style:',
+                  globalThis.getComputedStyle(videoRef.current!)
+                );
+                setIsCameraReady(true);
+                setShowPermissionModal(false);
+              })
+              .catch(error => {
+                console.error('Error playing video:', error);
+                setShowPermissionModal(true);
+              });
+          }
+        };
+
+        videoRef.current.addEventListener(
+          'loadedmetadata',
+          handleLoadedMetadata,
+          {
+            once: true,
+          }
+        );
       } else {
         setTimeout(() => startCamera(), 300);
         return;
@@ -211,7 +259,6 @@ export default function TebakGerakanPage() {
         }
         return prediction;
       } catch (error) {
-        // eslint-disable-next-line no-console
         console.error('Prediction error:', error);
         if (isRealtime) setRealtimePrediction('Error');
         else setPredictionResult('Error');
@@ -315,7 +362,12 @@ export default function TebakGerakanPage() {
         animationFrameIdRef.current = requestAnimationFrame(predictWebcam);
         return;
       }
-      if (canvas.width !== video.videoWidth) {
+
+      // Set canvas size to match video
+      if (
+        canvas.width !== video.videoWidth ||
+        canvas.height !== video.videoHeight
+      ) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
       }
@@ -472,15 +524,18 @@ export default function TebakGerakanPage() {
         buttonText="Lihat Hasil"
       />
 
-      <header className="z-30 w-full p-2 sm:p-3">
+      <header className="z-30 w-full p-3 sm:p-3">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2">
           <div className="flex flex-1 justify-start">
             <BackButton onClick={() => setIsExitModalOpen(true)} />
           </div>
-          <div className="flex flex-1 justify-center">
+          <div className="flex flex-1 justify-center lg:hidden">
+            {/* Empty space on mobile - info moved below */}
+          </div>
+          <div className="hidden flex-1 justify-center lg:flex">
             <ScoreDisplay score={score} feedbackPoints={feedbackPoints} />
           </div>
-          <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4">
+          <div className="hidden flex-1 items-center justify-end gap-4 lg:flex">
             <TimerDisplay timeLeft={timeLeft} totalTime={TOTAL_TIME_SECONDS} />
             <QuestionCounter
               current={currentQuestionIndex + 1}
@@ -490,146 +545,294 @@ export default function TebakGerakanPage() {
         </div>
       </header>
 
-      <main className="mx-auto -mt-4 flex w-full max-w-6xl flex-grow items-center justify-center px-2 sm:px-4">
-        <div className="grid w-full grid-cols-1 items-center gap-4 lg:grid-cols-2 lg:gap-8">
-          <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center">
-            <div className="relative mb-1 sm:mb-2">
-              <h2 className="text-center font-comic text-xl font-bold text-purple-800 drop-shadow-md sm:text-2xl">
-                ✨ CONTOH GERAKAN ✨
-              </h2>
-              <div className="absolute -right-1 -top-1 size-4 animate-bounce rounded-full bg-yellow-400 sm:-right-2 sm:-top-2 sm:size-5"></div>
+      <main className="mx-auto flex w-full max-w-6xl flex-grow items-center justify-center px-2 sm:px-4 lg:-mt-4">
+        {/* 4. GUNAKAN CONDITIONAL RENDERING */}
+        {isDesktop ? (
+          /* Desktop Layout - HILANGKAN 'hidden' dan 'lg:grid' */
+          <div className="grid w-full grid-cols-2 items-center gap-8">
+            <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center">
+              <div className="relative mb-2">
+                <h2 className="text-center font-comic text-2xl font-bold text-purple-800 drop-shadow-md">
+                  ✨ CONTOH GERAKAN ✨
+                </h2>
+                <div className="absolute -right-2 -top-2 size-5 animate-bounce rounded-full bg-yellow-400"></div>
+              </div>
+              <div className="relative w-full">
+                <div className="relative z-10 rounded-3xl border-4 border-white/50 bg-gradient-to-br from-blue-100 to-purple-100 p-3 shadow-2xl">
+                  <div className="relative aspect-square w-full rounded-2xl border-2 border-white/50 bg-white/70 shadow-inner">
+                    {currentMovement && (
+                      <Image
+                        key={currentMovement.id}
+                        src={currentMovement.imageUrl}
+                        width={300}
+                        height={300}
+                        alt={currentMovement.name}
+                        className="size-full rounded-xl object-contain"
+                        priority
+                      />
+                    )}
+
+                    {nextQuestionCountdown !== undefined &&
+                      nextQuestionCountdown > 0 && (
+                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-xl bg-black/60 backdrop-blur-sm">
+                          <p className="font-comic text-xl font-bold text-white drop-shadow-lg">
+                            Soal Berikutnya dalam
+                          </p>
+                          <p className="animate-pulse font-comic text-8xl font-bold text-white drop-shadow-lg">
+                            {nextQuestionCountdown}
+                          </p>
+                        </div>
+                      )}
+                  </div>
+                  <div className="mt-2 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 p-2 text-center shadow-lg">
+                    <p className="font-comic text-xl font-bold text-white drop-shadow-md">
+                      {currentMovement?.name}
+                    </p>
+                  </div>
+                </div>
+                <div className="absolute inset-0 -z-10 translate-y-2 rounded-3xl bg-gradient-to-br from-blue-300 to-purple-300"></div>
+              </div>
             </div>
-            <div className="relative w-full">
-              <div className="relative z-10 rounded-2xl border-4 border-white/50 bg-gradient-to-br from-blue-100 to-purple-100 p-3 shadow-2xl sm:rounded-3xl">
-                <div className="relative aspect-square w-full rounded-xl border-2 border-white/50 bg-white/70 shadow-inner sm:rounded-2xl">
-                  {currentMovement && (
-                    <Image
-                      key={currentMovement.id}
-                      src={currentMovement.imageUrl}
-                      width={300}
-                      height={300}
-                      alt={currentMovement.name}
-                      className="size-full rounded-lg object-contain sm:rounded-xl"
-                      priority
+
+            <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center">
+              <div className="relative mb-2">
+                <h2 className="text-center font-comic text-2xl font-bold text-purple-800 drop-shadow-md">
+                  🎯 GERAKANMU 🎯
+                </h2>
+                <div className="animation-delay-500 absolute -left-2 -top-2 size-5 animate-bounce rounded-full bg-green-400"></div>
+              </div>
+              <div className="relative w-full">
+                <div className="relative z-10 rounded-3xl border-4 border-white/50 bg-gradient-to-br from-green-100 to-blue-100 p-3 shadow-2xl">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-2xl border-2 border-white/50 bg-gray-900 shadow-inner">
+                    {/* INI ADALAH videoRef UNTUK DESKTOP */}
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="absolute inset-0 z-0 size-full -scale-x-100 object-cover"
+                      style={{
+                        display: isCameraReady ? 'block' : 'none',
+                        backgroundColor: '#000',
+                      }}
                     />
-                  )}
-
-                  {nextQuestionCountdown !== undefined &&
-                    nextQuestionCountdown > 0 && (
-                      <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-xl bg-black/60 backdrop-blur-sm">
-                        <p className="font-comic text-xl font-bold text-white drop-shadow-lg">
-                          Soal Berikutnya dalam
-                        </p>
-                        <p className="animate-pulse font-comic text-8xl font-bold text-white drop-shadow-lg">
-                          {nextQuestionCountdown}
+                    {!isCameraReady && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-800">
+                        <p className="font-comic text-white">
+                          Mengaktifkan kamera...
                         </p>
                       </div>
                     )}
-                </div>
-                <div className="mt-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 p-2 text-center shadow-lg sm:rounded-2xl">
-                  <p className="font-comic text-lg font-bold text-white drop-shadow-md sm:text-xl">
-                    {currentMovement?.name}
-                  </p>
-                </div>
-              </div>
-              <div className="absolute inset-0 -z-10 translate-y-2 rounded-2xl bg-gradient-to-br from-blue-300 to-purple-300 sm:rounded-3xl"></div>
-            </div>
-          </div>
+                    {/* INI ADALAH canvasRef UNTUK DESKTOP */}
+                    <canvas
+                      ref={canvasRef}
+                      className="absolute left-0 top-0 z-10 size-full"
+                      style={{ pointerEvents: 'none' }}
+                    />
 
-          <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center">
-            <div className="relative mb-1 sm:mb-2">
-              <h2 className="text-center font-comic text-xl font-bold text-purple-800 drop-shadow-md sm:text-2xl">
-                🎯 GERAKANMU 🎯
-              </h2>
-              <div className="animation-delay-500 absolute -left-1 -top-1 size-4 animate-bounce rounded-full bg-green-400 sm:-left-2 sm:-top-2 sm:size-5"></div>
-            </div>
-            <div className="relative w-full">
-              <div className="relative z-10 rounded-2xl border-4 border-white/50 bg-gradient-to-br from-green-100 to-blue-100 p-3 shadow-2xl sm:rounded-3xl">
-                <div className="relative aspect-square w-full overflow-hidden rounded-xl border-2 border-white/50 bg-gray-900 shadow-inner sm:rounded-2xl">
-                  <video
-                    ref={videoRef as React.RefObject<HTMLVideoElement>}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="absolute inset-0 size-full -scale-x-100 object-cover"
-                    style={{ display: isCameraReady ? 'block' : 'none' }}
-                  />
-                  {!isCameraReady && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <p className="font-comic text-white">
-                        Mengaktifkan kamera...
-                      </p>
-                    </div>
-                  )}
-                  <canvas
-                    ref={canvasRef as React.RefObject<HTMLCanvasElement>}
-                    className="absolute left-0 top-0 size-full"
-                  />
-
-                  {stabilityProgress > 0 && (
-                    <div className="absolute inset-x-4 bottom-4 z-20">
-                      <div className="h-3 w-full overflow-hidden rounded-full bg-gray-700/80 backdrop-blur-sm">
-                        <div
-                          className="h-full bg-gradient-to-r from-green-400 to-blue-500 transition-all duration-300"
-                          style={{ width: `${stabilityProgress}%` }}
-                        ></div>
-                      </div>
-                      <p className="mt-1 text-center font-comic text-xs text-white drop-shadow-lg">
-                        Tahan posisi... {Math.round(stabilityProgress)}%
-                      </p>
-                    </div>
-                  )}
-
-                  {isProcessing && !nextQuestionCountdown && (
-                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
-                      <p className="font-comic text-4xl font-bold text-white drop-shadow-lg">
-                        Memeriksa...
-                      </p>
-                    </div>
-                  )}
-
-                  {nextQuestionCountdown !== undefined &&
-                    nextQuestionCountdown > 0 && (
-                      <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-                        <p className="font-comic text-xl font-bold text-white drop-shadow-lg">
-                          Soal Berikutnya dalam
-                        </p>
-                        <p className="animate-pulse font-comic text-8xl font-bold text-white drop-shadow-lg">
-                          {nextQuestionCountdown}
+                    {stabilityProgress > 0 && (
+                      <div className="absolute inset-x-4 bottom-4 z-20">
+                        <div className="h-3 w-full overflow-hidden rounded-full bg-gray-700/80 backdrop-blur-sm">
+                          <div
+                            className="h-full bg-gradient-to-r from-green-400 to-blue-500 transition-all duration-300"
+                            style={{ width: `${stabilityProgress}%` }}
+                          ></div>
+                        </div>
+                        <p className="mt-1 text-center font-comic text-xs text-white drop-shadow-lg">
+                          Tahan posisi... {Math.round(stabilityProgress)}%
                         </p>
                       </div>
                     )}
-                </div>
-              </div>
-              <div className="absolute inset-0 -z-10 translate-y-2 rounded-2xl bg-gradient-to-br from-green-300 to-blue-300 sm:rounded-3xl"></div>
-            </div>
 
-            {!isProcessing &&
-              !predictionResult &&
-              realtimePrediction &&
-              !nextQuestionCountdown && (
-                <div className="mt-4 text-center">
-                  <p className="font-comic text-sm text-gray-500">
-                    Tanganmu Terdeteksi:
+                    {isProcessing && !nextQuestionCountdown && (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
+                        <p className="font-comic text-4xl font-bold text-white drop-shadow-lg">
+                          Memeriksa...
+                        </p>
+                      </div>
+                    )}
+
+                    {nextQuestionCountdown !== undefined &&
+                      nextQuestionCountdown > 0 && (
+                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+                          <p className="font-comic text-xl font-bold text-white drop-shadow-lg">
+                            Soal Berikutnya dalam
+                          </p>
+                          <p className="animate-pulse font-comic text-8xl font-bold text-white drop-shadow-lg">
+                            {nextQuestionCountdown}
+                          </p>
+                        </div>
+                      )}
+                  </div>
+                </div>
+                <div className="absolute inset-0 -z-10 translate-y-2 rounded-3xl bg-gradient-to-br from-green-300 to-blue-300"></div>
+              </div>
+
+              {!isProcessing &&
+                !predictionResult &&
+                realtimePrediction &&
+                !nextQuestionCountdown && (
+                  <div className="mt-4 text-center">
+                    <p className="font-comic text-sm text-gray-500">
+                      Tanganmu Terdeteksi:
+                    </p>
+                    <p className="inline-block rounded-lg bg-gray-200/80 px-4 py-2 font-comic text-3xl font-bold text-gray-800 shadow-lg backdrop-blur-sm">
+                      {realtimePrediction}
+                    </p>
+                  </div>
+                )}
+
+              {predictionResult && !nextQuestionCountdown && (
+                <div className="mt-4 animate-pulse text-center">
+                  <p className="font-comic text-sm text-gray-700">
+                    Hasil Prediksi Akhir:
                   </p>
-                  <p className="inline-block rounded-lg bg-gray-200/80 px-4 py-2 font-comic text-3xl font-bold text-gray-800 shadow-lg backdrop-blur-sm">
-                    {realtimePrediction}
+                  <p className="inline-block rounded-lg bg-purple-600/80 px-4 py-2 font-comic text-2xl font-bold text-white shadow-lg backdrop-blur-sm">
+                    {predictionResult}
                   </p>
                 </div>
               )}
-
-            {predictionResult && !nextQuestionCountdown && (
-              <div className="mt-4 animate-pulse text-center">
-                <p className="font-comic text-sm text-gray-700">
-                  Hasil Prediksi Akhir:
-                </p>
-                <p className="inline-block rounded-lg bg-purple-600/80 px-4 py-2 font-comic text-2xl font-bold text-white shadow-lg backdrop-blur-sm">
-                  {predictionResult}
-                </p>
-              </div>
-            )}
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Mobile Layout - HILANGKAN 'lg:hidden' */
+          <div className="flex w-full flex-col items-center justify-center">
+            {/* Mobile Info Bar - Above Camera */}
+            <div className="mb-3 flex w-full max-w-md items-center justify-between gap-2 px-2">
+              <ScoreDisplay score={score} feedbackPoints={feedbackPoints} />
+              <div className="flex items-center gap-2">
+                <TimerDisplay
+                  timeLeft={timeLeft}
+                  totalTime={TOTAL_TIME_SECONDS}
+                />
+                <QuestionCounter
+                  current={currentQuestionIndex + 1}
+                  total={shuffledMovements.length}
+                />
+              </div>
+            </div>
+
+            <div className="relative w-full max-w-md">
+              {/* Target Letter Badge - Above Camera */}
+              {currentMovement && (
+                <div className="absolute -top-3 left-1/2 z-30 -translate-x-1/2">
+                  <div className="relative">
+                    <div className="border-3 flex items-center gap-2 rounded-2xl border-white bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 px-6 py-2 shadow-2xl">
+                      <span className="font-comic text-sm font-bold text-white/90">
+                        TIRU:
+                      </span>
+                      <span className="font-comic text-4xl font-bold text-white drop-shadow-lg">
+                        {currentMovement.name}
+                      </span>
+                    </div>
+                    <div className="absolute -right-2 -top-2 size-4 animate-bounce rounded-full bg-yellow-400 shadow-lg"></div>
+                    <div className="absolute -bottom-1 left-1/2 size-3 -translate-x-1/2 rotate-45 bg-gradient-to-br from-pink-500 to-orange-500"></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Camera Container */}
+              <div className="relative mt-6 w-full">
+                <div className="relative z-10 rounded-3xl border-4 border-white/50 bg-gradient-to-br from-green-100 to-blue-100 p-3 shadow-2xl">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-2xl border-2 border-white/50 bg-gray-900 shadow-inner">
+                    {/* INI ADALAH videoRef UNTUK MOBILE */}
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="absolute inset-0 size-full -scale-x-100 object-cover"
+                      style={{
+                        display: isCameraReady ? 'block' : 'none',
+                        backgroundColor: '#000',
+                      }}
+                    />
+                    {!isCameraReady && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                        <p className="font-comic text-sm text-white">
+                          Mengaktifkan kamera...
+                        </p>
+                      </div>
+                    )}
+                    {/* INI ADALAH canvasRef UNTUK MOBILE */}
+                    <canvas
+                      ref={canvasRef}
+                      className="absolute left-0 top-0 size-full"
+                      style={{ pointerEvents: 'none' }}
+                    />
+
+                    {/* Real-time Prediction Display */}
+                    {!isProcessing &&
+                      !predictionResult &&
+                      realtimePrediction &&
+                      !nextQuestionCountdown && (
+                        <div className="absolute left-3 top-3 z-20">
+                          <div className="rounded-xl bg-black/70 px-3 py-2 backdrop-blur-sm">
+                            <p className="font-comic text-[10px] text-white/70">
+                              Terdeteksi:
+                            </p>
+                            <p className="font-comic text-2xl font-bold text-white">
+                              {realtimePrediction}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Stability Progress Bar */}
+                    {stabilityProgress > 0 && (
+                      <div className="absolute inset-x-3 bottom-3 z-20">
+                        <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-700/80 backdrop-blur-sm">
+                          <div
+                            className="h-full bg-gradient-to-r from-green-400 to-blue-500 transition-all duration-300"
+                            style={{ width: `${stabilityProgress}%` }}
+                          ></div>
+                        </div>
+                        <p className="mt-1 text-center font-comic text-[10px] text-white drop-shadow-lg">
+                          Tahan... {Math.round(stabilityProgress)}%
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Processing Overlay */}
+                    {isProcessing && !nextQuestionCountdown && (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
+                        <p className="font-comic text-3xl font-bold text-white drop-shadow-lg">
+                          Memeriksa...
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Next Question Countdown */}
+                    {nextQuestionCountdown !== undefined &&
+                      nextQuestionCountdown > 0 && (
+                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+                          <p className="font-comic text-lg font-bold text-white drop-shadow-lg">
+                            Soal Berikutnya dalam
+                          </p>
+                          <p className="animate-pulse font-comic text-7xl font-bold text-white drop-shadow-lg">
+                            {nextQuestionCountdown}
+                          </p>
+                        </div>
+                      )}
+                  </div>
+                </div>
+                <div className="absolute inset-0 -z-10 translate-y-2 rounded-3xl bg-gradient-to-br from-green-300 to-blue-300"></div>
+              </div>
+
+              {/* Final Prediction Result */}
+              {predictionResult && !nextQuestionCountdown && (
+                <div className="mt-3 text-center">
+                  <p className="font-comic text-xs text-gray-600">
+                    Hasil Prediksi:
+                  </p>
+                  <p className="inline-block rounded-xl bg-purple-600/90 px-4 py-2 font-comic text-xl font-bold text-white shadow-lg backdrop-blur-sm">
+                    {predictionResult}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
 
       <footer className="z-30 flex h-20 w-full justify-center py-1 sm:py-2"></footer>
