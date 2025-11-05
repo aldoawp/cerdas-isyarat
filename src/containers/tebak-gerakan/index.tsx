@@ -239,7 +239,8 @@ export default function TebakGerakanPage() {
       if (landmarks.length === 0) return undefined;
       try {
         const response = await fetch(
-          'http://127.0.0.1:8000/predict_landmarks',
+          'https://aiskripsibisindo-production.up.railway.app/predict_landmarks',
+
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
