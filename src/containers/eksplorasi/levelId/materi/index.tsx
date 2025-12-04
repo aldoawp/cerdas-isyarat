@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { useUserProgress } from '@/lib/hooks/use-user-progress';
-import BackButton from '../../../../components/shared/backbutton/backbutton'; // [DITAMBAHKAN] Impor komponen BackButton
+import BackButton from '../../../../components/shared/backbutton/backbutton';
 import {
   useRequireAuth,
   usePageLoading,
@@ -18,7 +18,7 @@ import {
   getUserCurrentStep,
 } from '@/services/ekplorasi-service';
 
-// --- Tipe Data & Logika Progress ---
+// --- TYPES ---
 interface LevelProgress {
   progress: number;
   lastIndex: number;
@@ -27,8 +27,10 @@ interface UserProgress {
   completedLevelIds: number[];
   learningProgress: { [levelId: number]: LevelProgress };
 }
-// --- FUNGSI PEMROSESAN ---
+
+// --- LOCAL STORAGE FUNCTIONS ---
 const PROGRESS_KEY = 'userBisindoProgress';
+
 const getProgress = (): UserProgress => {
   if (globalThis.window === undefined)
     return { completedLevelIds: [], learningProgress: {} };
@@ -41,10 +43,12 @@ const getProgress = (): UserProgress => {
     return { completedLevelIds: [], learningProgress: {} };
   }
 };
+
 const saveProgress = (progress: UserProgress) => {
   if (globalThis.window !== undefined)
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
 };
+
 const updateLearningProgress = (
   levelId: number,
   currentIndex: number,
@@ -59,6 +63,7 @@ const updateLearningProgress = (
   saveProgress(currentProgress);
 };
 
+// --- MODAL COMPONENT ---
 const ConfirmationModal = ({
   isOpen,
   onConfirm,
@@ -97,19 +102,23 @@ const ConfirmationModal = ({
   );
 };
 
+// --- MAIN PAGE COMPONENT ---
 export default function MateriPage() {
   const router = useRouter();
   const params = useParams();
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
   const { user } = useAuth();
-  const levelId = params.levelId as string; // Changed to string since we're using exploration_id
+  const levelId = params.levelId as string;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [materials, setMaterials] = useState<ProcessedLearningModule[]>([]);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const { refillLives } = useUserProgress();
 
+  // Load materials with cache optimization
   const loadMaterials = useCallback(async () => {
     if (!levelId || !user?.id) {
       setIsLoading(false);
@@ -120,10 +129,11 @@ export default function MateriPage() {
       setIsLoading(true);
       setError(undefined);
 
+      // Fetch modules - akan menggunakan cache jika tersedia
       const modules = await getLearningModulesForExploration(levelId);
       setMaterials(modules);
 
-      // Get current step from backend progress
+      // Get current step
       const currentStep = await getUserCurrentStep(user.id, modules.length);
       setCurrentIndex(currentStep);
     } catch (error_) {
@@ -141,7 +151,15 @@ export default function MateriPage() {
     loadMaterials();
   }, [loadMaterials]);
 
-  // Function to update backend progress
+  // Preload next image
+  useEffect(() => {
+    if (materials.length > 0 && currentIndex < materials.length - 1) {
+      const nextImage = new globalThis.Image();
+      nextImage.src = materials[currentIndex + 1].imageUrl;
+    }
+  }, [currentIndex, materials]);
+
+  // Update backend progress
   const updateBackendProgress = useCallback(async () => {
     if (!user?.id || materials.length === 0) return;
 
@@ -154,20 +172,17 @@ export default function MateriPage() {
     } catch (error_) {
       // eslint-disable-next-line no-console
       console.error('Error updating backend progress:', error_);
-      // Continue with local progress update as fallback
     }
   }, [user?.id, currentIndex, materials.length]);
 
+  // Update progress when index changes
   useEffect(() => {
     if (!isLoading && materials.length > 0) {
-      // Update local progress (for backward compatibility)
       updateLearningProgress(
         Number.parseInt(levelId),
         currentIndex,
         materials.length
       );
-
-      // Update backend progress
       updateBackendProgress();
     }
   }, [
@@ -181,6 +196,7 @@ export default function MateriPage() {
   const handleBackClick = () => setIsModalOpen(true);
   const handleConfirmBack = () => router.push('/eksplorasi');
   const handleCancelBack = () => setIsModalOpen(false);
+
   const currentMateri = materials[currentIndex];
   const progressPercentage =
     materials.length > 0
@@ -188,49 +204,64 @@ export default function MateriPage() {
       : 0;
   const isLastMateri = currentIndex === materials.length - 1;
 
-  const { refillLives } = useUserProgress();
-
   const handleNext = useCallback(async () => {
+    if (isTransitioning) return;
+
     if (isLastMateri) {
-      // Update progress to maximum step (don't complete the level yet)
+      setIsTransitioning(true);
       if (user?.id) {
         try {
           await updateUserExplorationProgress(
             user.id,
-            materials.length - 1, // Last step (0-based index)
+            materials.length - 1,
             materials.length
           );
         } catch (error_) {
           // eslint-disable-next-line no-console
           console.error('Error updating progress:', error_);
-          // Continue anyway - don't block user experience
         }
       }
-
       refillLives();
       router.push('/eksplorasi');
     } else {
+      setIsTransitioning(true);
       setCurrentIndex(prev => prev + 1);
+      requestAnimationFrame(() => {
+        setTimeout(() => setIsTransitioning(false), 200);
+      });
     }
-  }, [isLastMateri, router, refillLives, user?.id, materials.length]);
+  }, [
+    isLastMateri,
+    router,
+    refillLives,
+    user?.id,
+    materials.length,
+    isTransitioning,
+  ]);
 
   const handlePrev = useCallback(() => {
-    setCurrentIndex(prev => Math.max(0, prev - 1));
-  }, []);
+    if (isTransitioning || currentIndex === 0) return;
 
-  // Show loading screen while page is loading or checking authentication
+    setIsTransitioning(true);
+    setCurrentIndex(prev => Math.max(0, prev - 1));
+    requestAnimationFrame(() => {
+      setTimeout(() => setIsTransitioning(false), 200);
+    });
+  }, [currentIndex, isTransitioning]);
+
   if (isPageLoading || authLoading) {
     return <LoadingScreen message="Halaman sedang dimuat..." />;
   }
 
-  if (isLoading)
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100 font-sans text-xl font-bold">
         Memuat materi...
       </div>
     );
+  }
 
-  if (error)
+  if (error) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-gray-100 p-4 text-center font-sans">
         <h2 className="text-2xl font-bold text-red-500">Error: {error}</h2>
@@ -242,8 +273,9 @@ export default function MateriPage() {
         </button>
       </div>
     );
+  }
 
-  if (!currentMateri || materials.length === 0)
+  if (!currentMateri || materials.length === 0) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-gray-100 p-4 text-center font-sans">
         <h2 className="text-2xl font-bold text-red-500">
@@ -257,6 +289,7 @@ export default function MateriPage() {
         </button>
       </div>
     );
+  }
 
   return (
     <>
@@ -273,7 +306,6 @@ export default function MateriPage() {
       </ConfirmationModal>
       <div className="flex h-screen flex-col overflow-hidden bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
         <header className="flex items-center justify-between p-4">
-          {/* [DIUBAH] Menggunakan komponen BackButton */}
           <div className="w-1/4">
             <BackButton onClick={handleBackClick} />
           </div>
@@ -291,51 +323,59 @@ export default function MateriPage() {
           <div className="w-1/4"></div>
         </header>
         <main className="flex flex-1 animate-fade-in-up flex-col items-center justify-center p-4 md:p-6">
-          <div className="w-full max-w-2xl rounded-3xl bg-form-bg p-6 text-center shadow-2xl drop-shadow-comic">
-            <h1 className="text-5xl font-bold text-brand-yellow drop-shadow-lg text-stroke-base md:text-6xl">
-              {currentMateri.title}
-            </h1>
-            <div className="my-4 flex h-52 w-full items-center justify-center rounded-2xl bg-input-bg shadow-inner md:h-64">
-              <Image
-                src={currentMateri.imageUrl}
-                alt={`Isyarat untuk ${currentMateri.title}`}
-                width={250}
-                height={250}
-                className="object-contain"
-                priority
-              />
-            </div>
-            <div className="rounded-xl bg-subtitle-cream p-4">
-              <h3 className="text-lg font-bold text-placeholder-brown">
-                Contoh Kalimat:
-              </h3>
-              <p
-                className="font-comic text-xl text-gray-800"
-                dangerouslySetInnerHTML={{
-                  __html: (
-                    currentMateri.exampleSentence ||
-                    currentMateri.description ||
-                    ''
-                  ).replaceAll(
-                    /\*\*(.*?)\*\*/g,
-                    '<strong class="text-brand-brown-stroke">$1</strong>'
-                  ),
-                }}
-              />
+          <div className="relative w-full max-w-2xl rounded-3xl bg-form-bg p-6 text-center shadow-2xl drop-shadow-comic">
+            <div
+              key={currentIndex}
+              className={`transition-opacity duration-200 ${
+                isTransitioning ? 'opacity-0' : 'opacity-100'
+              }`}
+            >
+              <h1 className="text-5xl font-bold text-brand-yellow drop-shadow-lg text-stroke-base md:text-6xl">
+                {currentMateri.title}
+              </h1>
+              <div className="my-4 flex h-52 w-full items-center justify-center rounded-2xl bg-input-bg shadow-inner md:h-64">
+                <Image
+                  src={currentMateri.imageUrl}
+                  alt={`Isyarat untuk ${currentMateri.title}`}
+                  width={250}
+                  height={250}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+              <div className="rounded-xl bg-subtitle-cream p-4">
+                <h3 className="text-lg font-bold text-placeholder-brown">
+                  Contoh Kalimat:
+                </h3>
+                <p
+                  className="font-comic text-xl text-gray-800"
+                  dangerouslySetInnerHTML={{
+                    __html: (
+                      currentMateri.exampleSentence ||
+                      currentMateri.description ||
+                      ''
+                    ).replaceAll(
+                      /\*\*(.*?)\*\*/g,
+                      '<strong class="text-brand-brown-stroke">$1</strong>'
+                    ),
+                  }}
+                />
+              </div>
             </div>
           </div>
         </main>
         <footer className="flex items-center justify-center gap-6 p-4">
           <button
             onClick={handlePrev}
-            disabled={currentIndex === 0}
+            disabled={currentIndex === 0 || isTransitioning}
             className="max-w-xs flex-1 rounded-2xl border-4 border-brand-brown-stroke bg-white py-3 text-2xl font-bold text-brand-brown-stroke shadow-lg drop-shadow-comic-sm transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Kembali
           </button>
           <button
             onClick={handleNext}
-            className="max-w-xs flex-1 rounded-2xl bg-brand-yellow py-4 text-2xl font-bold text-brand-brown-stroke shadow-lg drop-shadow-comic-sm transition-transform hover:scale-105"
+            disabled={isTransitioning}
+            className="max-w-xs flex-1 rounded-2xl bg-brand-yellow py-4 text-2xl font-bold text-brand-brown-stroke shadow-lg drop-shadow-comic-sm transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLastMateri ? 'Selesai!' : 'Lanjut'}
           </button>

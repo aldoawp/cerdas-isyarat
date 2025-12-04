@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/client';
 import {
   getUserProgress,
   createUserProgress,
@@ -8,13 +9,14 @@ import {
   resetUserExplorationProgress,
   type UserProgress,
 } from '@/repositories/users-progress-repository';
+import { getLearningModulesByExplorationId } from '@/repositories/ekplorasi-repository';
 
 export interface UserProgressData {
   explorationLevel: number;
   explorationProgress: number;
   guessingChallengeScore: number;
-  xp: number; // Calculated from exploration_progress
-  lives: number; // Can be derived from exploration_progress or separate field
+  xp: number;
+  lives: number;
 }
 
 export interface UserProfileData {
@@ -23,9 +25,12 @@ export interface UserProfileData {
   lives?: number;
 }
 
-// Business logic for calculating user progress
+// --- MAIN LOGIC FIX ---
+
+// Helper function to calculate percentage
 export const calculateUserProgress = (
-  dbProgress: UserProgress | undefined
+  dbProgress: UserProgress | undefined,
+  totalSteps: number
 ): UserProgressData => {
   if (!dbProgress) {
     return {
@@ -37,28 +42,68 @@ export const calculateUserProgress = (
     };
   }
 
-  // XP is calculated based on exploration_progress
-  // If user is at level 3 out of 5 total levels, XP = (3/5) * 100 = 60
-  const totalLevels = 5; // Assuming 5 total levels in exploration
-  const xp = Math.round((dbProgress.exploration_progress / totalLevels) * 100);
+  // DYNAMIC FORMULA: (User Step / Real DB Total Steps) * 100
+  let calculatedXp = 0;
+  if (totalSteps > 0) {
+    calculatedXp = Math.round(
+      (dbProgress.exploration_progress / totalSteps) * 100
+    );
+  }
 
-  // Use actual lives from database
-  const lives = dbProgress.user_lives;
+  // Safety net to prevent overflow > 100%
+  if (calculatedXp > 100) calculatedXp = 100;
+  if (calculatedXp < 0) calculatedXp = 0;
 
   return {
     explorationLevel: dbProgress.exploration_level,
     explorationProgress: dbProgress.exploration_progress,
     guessingChallengeScore: dbProgress.guessing_challenge_score,
-    xp,
-    lives,
+    xp: calculatedXp,
+    lives: dbProgress.user_lives,
   };
 };
 
+// [CRITICAL FIX] Fetch total steps dynamically using existing repository function
 export const getUserProgressData = async (
   userId: string
 ): Promise<UserProgressData> => {
   const dbProgress = await getUserProgress(userId);
-  return calculateUserProgress(dbProgress);
+
+  // Default to 0 to prevent division issues
+  let currentLevelTotalSteps = 0;
+
+  if (dbProgress) {
+    try {
+      const supabase = createClient();
+
+      // Get the exploration_id for the user's current level
+      const { data: explorationData } = await supabase
+        .from('exploration')
+        .select('exploration_id')
+        .eq('levels', dbProgress.exploration_level)
+        .single();
+
+      if (explorationData?.exploration_id) {
+        // Use the existing repository function to get learning modules
+        const modules = await getLearningModulesByExplorationId(
+          explorationData.exploration_id
+        );
+        currentLevelTotalSteps = modules.length;
+      }
+    } catch (error) {
+      console.error('Failed to fetch dynamic total steps:', error);
+      // If we can't fetch, default to the current progress to avoid breaking
+      currentLevelTotalSteps = dbProgress.exploration_progress || 1;
+    }
+  }
+
+  // Ensure we have a valid totalSteps to prevent division by zero
+  if (currentLevelTotalSteps === 0) {
+    currentLevelTotalSteps = dbProgress?.exploration_progress || 1;
+  }
+
+  // Pass the real totalSteps to the calculation
+  return calculateUserProgress(dbProgress, currentLevelTotalSteps);
 };
 
 export const initializeUserProgress = async (
@@ -80,7 +125,6 @@ export const updateUserExplorationProgress = async (
   const currentProgress = await getUserProgress(userId);
 
   if (!currentProgress) {
-    // Initialize progress if it doesn't exist
     return createUserProgress({
       userId,
       explorationLevel: newLevel,
@@ -116,7 +160,6 @@ export const completeLevel = async (
   userId: string,
   levelId: number
 ): Promise<UserProgress> => {
-  // Move user to the next level, step 0 and regenerate lives to full
   const nextLevel = levelId + 1;
   return updateUserProgress({
     userId,
@@ -131,21 +174,14 @@ export const updateUserStep = async (
   level: number,
   step: number
 ): Promise<UserProgress> => {
-  // Update user's current step within a level
   return updateUserExplorationProgress(userId, level, step);
 };
 
-/**
- * Decreases user lives and handles progress reset if lives reach zero
- * @param userId - The user ID
- * @returns Promise<{ updatedProgress: UserProgress; shouldResetProgress: boolean }>
- */
 export const decreaseUserLivesWithProgressReset = async (
   userId: string
 ): Promise<{ updatedProgress: UserProgress; shouldResetProgress: boolean }> => {
   const updatedProgress = await decreaseUserLives(userId);
 
-  // If lives reach zero, reset exploration progress
   if (updatedProgress.user_lives === 0) {
     const resetProgress = await resetUserExplorationProgress(userId);
     return { updatedProgress: resetProgress, shouldResetProgress: true };
