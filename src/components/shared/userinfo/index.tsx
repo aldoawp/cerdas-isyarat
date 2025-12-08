@@ -7,8 +7,6 @@ import clsx from 'clsx';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { useUserProgress, avatars } from '@/lib/hooks/use-user-progress';
 
-// Export helper functions for backward compatibility
-
 // --- TYPE DEFINITIONS ---
 interface UserInfoProps {
   fullName: string;
@@ -103,6 +101,37 @@ const ChevronDownIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+// --- LOADING COMPONENTS ---
+const LoadingSpinner = ({ className = '' }: { className?: string }) => (
+  <div
+    className={`animate-spin rounded-full border-4 border-orange-300 border-t-orange-600 ${className}`}
+  />
+);
+
+const LoadingSkeleton = ({ mode }: { mode: DisplayMode }) => {
+  if (mode === 'sidebar' || mode === 'dropdown') {
+    return (
+      <div className="flex size-14 items-center justify-center rounded-full border-4 border-input-border bg-amber-500/50 shadow-xl">
+        <LoadingSpinner className="size-6" />
+      </div>
+    );
+  }
+
+  // Card mode
+  return (
+    <div className="w-full max-w-md animate-pulse rounded-2xl border-4 border-yellow-400/80 bg-form-bg/90 p-4 shadow-lg backdrop-blur-sm">
+      <div className="flex items-center gap-4">
+        <div className="size-20 flex-shrink-0 rounded-full bg-gray-300"></div>
+        <div className="flex-grow space-y-3">
+          <div className="h-6 w-32 rounded bg-gray-300"></div>
+          <div className="h-4 w-full rounded bg-gray-300"></div>
+          <div className="h-3 w-24 rounded bg-gray-300"></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- MODAL COMPONENTS ---
 const AvatarModal = ({
   isOpen,
@@ -113,7 +142,22 @@ const AvatarModal = ({
   onClose: () => void;
   onSelect: (avatar: string) => void;
 }) => {
+  const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>(
+    {}
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      const loadingStates: { [key: string]: boolean } = {};
+      for (const avatar of avatars) {
+        loadingStates[avatar] = true;
+      }
+      setImageLoading(loadingStates);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return undefined;
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -133,11 +177,21 @@ const AvatarModal = ({
               onClick={() => onSelect(avatar)}
               className="relative aspect-square rounded-full bg-input-bg p-2 transition hover:scale-110 hover:bg-yellow-400"
             >
+              {imageLoading[avatar] && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-input-bg/80">
+                  <LoadingSpinner className="size-6" />
+                </div>
+              )}
               <Image
                 src={avatar}
                 alt={`Avatar ${index + 1}`}
                 fill
-                className="rounded-full object-cover"
+                onLoad={() =>
+                  setImageLoading(prev => ({ ...prev, [avatar]: false }))
+                }
+                className={`rounded-full object-cover transition-opacity ${
+                  imageLoading[avatar] ? 'opacity-0' : 'opacity-100'
+                }`}
               />
             </button>
           ))}
@@ -146,6 +200,7 @@ const AvatarModal = ({
     </div>
   );
 };
+
 const LogoutModal = ({
   isOpen,
   onClose,
@@ -200,7 +255,9 @@ const UserInfoSidebarContent = ({
   onAvatarClick,
   onLogoutClick,
 }: UserInfoProps) => {
+  const [avatarLoading, setAvatarLoading] = useState(true);
   const isXpMax = xp === 100;
+
   return (
     <div className="flex size-full flex-col p-4">
       <div className="flex flex-col items-center gap-3 text-center">
@@ -208,12 +265,20 @@ const UserInfoSidebarContent = ({
           onClick={onAvatarClick}
           className="group relative size-24 flex-shrink-0"
         >
+          {avatarLoading && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-yellow-200">
+              <LoadingSpinner className="size-8" />
+            </div>
+          )}
           <Image
             src={avatar}
             alt="User Avatar"
             width={96}
             height={96}
-            className="rounded-full border-4 border-white bg-yellow-200 object-cover"
+            onLoad={() => setAvatarLoading(false)}
+            className={`rounded-full border-4 border-white bg-yellow-200 object-cover transition-opacity ${
+              avatarLoading ? 'opacity-0' : 'opacity-100'
+            }`}
           />
           <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
             <span className="text-sm font-bold text-white">Ganti</span>
@@ -242,7 +307,7 @@ const UserInfoSidebarContent = ({
             )}
           >
             <div
-              className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400"
+              className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400 transition-all duration-300"
               style={{ width: `${xp}%` }}
             ></div>
           </div>
@@ -252,7 +317,7 @@ const UserInfoSidebarContent = ({
             {Array.from({ length: 3 }).map((_, i) => (
               <HeartIcon
                 key={i}
-                className={`size-7 ${i < lives ? 'text-red-500 drop-shadow-md' : 'text-slate-700'}`}
+                className={`size-7 transition-all ${i < lives ? 'text-red-500 drop-shadow-md' : 'text-slate-700'}`}
               />
             ))}
           </div>
@@ -285,19 +350,29 @@ const UserInfoDesktopContent = ({
   onAvatarClick,
   onLogoutClick,
 }: UserInfoProps) => {
+  const [avatarLoading, setAvatarLoading] = useState(true);
   const isXpMax = xp === 100;
+
   return (
     <div className="flex w-full items-center gap-4 p-3">
       <button
         onClick={onAvatarClick}
         className="group relative size-20 flex-shrink-0"
       >
+        {avatarLoading && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-yellow-200">
+            <LoadingSpinner className="size-6" />
+          </div>
+        )}
         <Image
           src={avatar}
           alt="User Avatar"
           width={80}
           height={80}
-          className="rounded-full border-4 border-white bg-yellow-200 object-cover"
+          onLoad={() => setAvatarLoading(false)}
+          className={`rounded-full border-4 border-white bg-yellow-200 object-cover transition-opacity ${
+            avatarLoading ? 'opacity-0' : 'opacity-100'
+          }`}
         />
         <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
           <span className="text-xs font-bold text-white">Ganti</span>
@@ -325,7 +400,7 @@ const UserInfoDesktopContent = ({
             )}
           >
             <div
-              className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400"
+              className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400 transition-all duration-300"
               style={{ width: `${xp}%` }}
             ></div>
           </div>
@@ -336,7 +411,7 @@ const UserInfoDesktopContent = ({
           {Array.from({ length: 3 }).map((_, i) => (
             <HeartIcon
               key={i}
-              className={`size-6 ${i < lives ? 'text-red-500 drop-shadow-md' : 'text-slate-700'}`}
+              className={`size-6 transition-all ${i < lives ? 'text-red-500 drop-shadow-md' : 'text-slate-700'}`}
             />
           ))}
         </div>
@@ -366,7 +441,9 @@ const UserInfoDropdownContent = ({
   onAvatarClick,
   onLogoutClick,
 }: UserInfoProps) => {
+  const [avatarLoading, setAvatarLoading] = useState(true);
   const isXpMax = xp === 100;
+
   return (
     <div className="w-80 max-w-[90vw] rounded-xl border-4 border-yellow-400/80 bg-form-bg/95 p-4 shadow-2xl backdrop-blur-sm">
       <div className="flex items-start gap-3">
@@ -374,12 +451,20 @@ const UserInfoDropdownContent = ({
           onClick={onAvatarClick}
           className="group relative size-16 flex-shrink-0"
         >
+          {avatarLoading && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-yellow-200">
+              <LoadingSpinner className="size-5" />
+            </div>
+          )}
           <Image
             src={avatar}
             alt="User Avatar"
             width={64}
             height={64}
-            className="border-3 rounded-full border-white bg-yellow-200 object-cover"
+            onLoad={() => setAvatarLoading(false)}
+            className={`border-3 rounded-full border-white bg-yellow-200 object-cover transition-opacity ${
+              avatarLoading ? 'opacity-0' : 'opacity-100'
+            }`}
           />
           <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
             <span className="text-xs font-bold text-white">Ganti</span>
@@ -407,7 +492,7 @@ const UserInfoDropdownContent = ({
               )}
             >
               <div
-                className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400"
+                className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400 transition-all duration-300"
                 style={{ width: `${xp}%` }}
               ></div>
             </div>
@@ -417,7 +502,7 @@ const UserInfoDropdownContent = ({
               {Array.from({ length: 3 }).map((_, i) => (
                 <HeartIcon
                   key={i}
-                  className={`size-5 ${i < lives ? 'text-red-500 drop-shadow-md' : 'text-slate-700'}`}
+                  className={`size-5 transition-all ${i < lives ? 'text-red-500 drop-shadow-md' : 'text-slate-700'}`}
                 />
               ))}
             </div>
@@ -443,13 +528,6 @@ const UserInfoDropdownContent = ({
 };
 
 // --- MAIN COMPONENT ---
-/**
- * UserDetail component displays user information in different modes (card, sidebar, dropdown)
- * Uses Supabase backend for user progress data and localStorage for user profile data
- *
- * @param mode - Display mode: 'card', 'sidebar', or 'dropdown'
- * @param className - Additional CSS classes
- */
 export default function UserDetail({
   mode = 'card',
   className = '',
@@ -493,9 +571,7 @@ export default function UserDetail({
   const confirmLogout = async () => {
     try {
       await signOut();
-      // Auth context will handle redirect automatically
     } catch {
-      // Even if logout fails, redirect to login page for security
       router.push('/login');
     }
   };
@@ -504,6 +580,15 @@ export default function UserDetail({
     updateAvatar(newAvatar);
     setIsAvatarModalOpen(false);
   };
+
+  // Show loading skeleton while fetching data
+  if (!isClient || loading) {
+    return (
+      <div className={className}>
+        <LoadingSkeleton mode={mode} />
+      </div>
+    );
+  }
 
   const userInfoProps: UserInfoProps = {
     fullName: userProfile.fullName,
@@ -514,12 +599,6 @@ export default function UserDetail({
     onAvatarClick: () => setIsAvatarModalOpen(true),
     onLogoutClick: () => setIsLogoutModalOpen(true),
   };
-
-  if (!isClient || loading) {
-    return <div className="size-14 bg-transparent"></div>;
-  }
-
-  // Handle error silently - component will render with fallback data
 
   return (
     <div className={className}>

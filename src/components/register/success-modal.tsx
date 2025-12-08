@@ -20,8 +20,8 @@ const SuccessModal = ({
         Hore! Berhasil!
       </h3>
       <p className="mb-6 px-4 font-comic text-gray-700">
-        Akunmu sudah jadi. Sebentar lagi kamu akan diarahkan ke halaman login,
-        ya!
+        Satu langkah lagi! 🚀 Buka emailmu dan klik link konfirmasinya supaya
+        akunmu aktif.
       </p>
       <button
         onClick={onClose}

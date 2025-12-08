@@ -116,6 +116,7 @@ export default function MateriPage() {
   const [materials, setMaterials] = useState<ProcessedLearningModule[]>([]);
   const [error, setError] = useState<string | undefined>(undefined);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
   const { refillLives } = useUserProgress();
 
   // Load materials with cache optimization
@@ -150,6 +151,11 @@ export default function MateriPage() {
   useEffect(() => {
     loadMaterials();
   }, [loadMaterials]);
+
+  // Reset image loading state when index changes
+  useEffect(() => {
+    setImageLoading(true);
+  }, [currentIndex]);
 
   // Preload next image
   useEffect(() => {
@@ -249,44 +255,61 @@ export default function MateriPage() {
     });
   }, [currentIndex, isTransitioning]);
 
+  const handleImageLoad = () => {
+    setImageLoading(false);
+  };
+
+  const handleImageError = () => {
+    setImageLoading(false);
+  };
+
   if (isPageLoading || authLoading) {
     return <LoadingScreen message="Halaman sedang dimuat..." />;
   }
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100 font-sans text-xl font-bold">
-        Memuat materi...
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-orange-50 to-yellow-50 font-sans">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="size-16 animate-spin rounded-full border-4 border-orange-300 border-t-orange-600"></div>
+          <p className="text-xl font-bold text-brand-brown-stroke">
+            Memuat materi...
+          </p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-gray-100 p-4 text-center font-sans">
-        <h2 className="text-2xl font-bold text-red-500">Error: {error}</h2>
-        <button
-          onClick={() => router.push('/eksplorasi')}
-          className="mt-4 rounded-lg bg-blue-500 px-6 py-2 font-bold text-white"
-        >
-          Kembali
-        </button>
+      <div className="flex h-screen flex-col items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 p-4 text-center font-sans">
+        <div className="rounded-3xl bg-white p-8 shadow-2xl">
+          <h2 className="text-2xl font-bold text-red-500">Error: {error}</h2>
+          <button
+            onClick={() => router.push('/eksplorasi')}
+            className="mt-4 rounded-xl bg-brand-yellow px-6 py-3 font-bold text-brand-brown-stroke shadow-lg transition-transform hover:scale-105"
+          >
+            Kembali
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!currentMateri || materials.length === 0) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-gray-100 p-4 text-center font-sans">
-        <h2 className="text-2xl font-bold text-red-500">
-          Materi tidak ditemukan!
-        </h2>
-        <button
-          onClick={() => router.push('/eksplorasi')}
-          className="mt-4 rounded-lg bg-blue-500 px-6 py-2 font-bold text-white"
-        >
-          Kembali
-        </button>
+      <div className="flex h-screen flex-col items-center justify-center bg-gradient-to-br from-orange-50 to-yellow-50 p-4 text-center font-sans">
+        <div className="rounded-3xl bg-white p-8 shadow-2xl">
+          <h2 className="text-2xl font-bold text-red-500">
+            Materi tidak ditemukan!
+          </h2>
+          <button
+            onClick={() => router.push('/eksplorasi')}
+            className="mt-4 rounded-xl bg-brand-yellow px-6 py-3 font-bold text-brand-brown-stroke shadow-lg transition-transform hover:scale-105"
+          >
+            Kembali
+          </button>
+        </div>
       </div>
     );
   }
@@ -333,13 +356,29 @@ export default function MateriPage() {
               <h1 className="text-5xl font-bold text-brand-yellow drop-shadow-lg text-stroke-base md:text-6xl">
                 {currentMateri.title}
               </h1>
-              <div className="my-4 flex h-52 w-full items-center justify-center rounded-2xl bg-input-bg shadow-inner md:h-64">
+              <div className="relative my-4 flex h-52 w-full items-center justify-center rounded-2xl bg-input-bg shadow-inner md:h-64">
+                {/* Loading Indicator */}
+                {imageLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-input-bg/80">
+                    <div className="flex flex-col items-center space-y-3">
+                      <div className="size-12 animate-spin rounded-full border-4 border-orange-300 border-t-orange-600"></div>
+                      <p className="text-sm font-semibold text-placeholder-brown">
+                        Memuat gambar...
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {/* Image */}
                 <Image
                   src={currentMateri.imageUrl}
                   alt={`Isyarat untuk ${currentMateri.title}`}
                   width={250}
                   height={250}
-                  className="object-contain"
+                  onLoad={handleImageLoad}
+                  onError={handleImageError}
+                  className={`object-contain transition-opacity duration-300 ${
+                    imageLoading ? 'opacity-0' : 'opacity-100'
+                  }`}
                   priority
                 />
               </div>

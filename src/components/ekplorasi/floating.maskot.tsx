@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
-// Pindahkan array ke luar komponen agar tidak dibuat ulang setiap render
 const encouragements = [
   { text: 'Semangat!', emoji: '💪' },
   { text: 'Kamu bisa!', emoji: '✨' },
@@ -19,35 +18,37 @@ export const FloatingMascot = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      // Ambil item acak dari array
       const randomIndex = Math.floor(Math.random() * encouragements.length);
       setCurrentEncouragement(encouragements[randomIndex]);
     }, 4000);
 
-    // Bersihkan interval saat komponen dilepas
     return () => clearInterval(interval);
-  }, []); // Dependency array sekarang bisa kosong karena 'encouragements' stabil
+  }, []);
 
   return (
-    // [DIUBAH] Posisi dipindahkan ke kiri bawah
-    <div className="fixed bottom-6 left-6 z-30 animate-bounce">
+    <div className="fixed bottom-4 left-4 z-30 animate-bounce md:bottom-8 md:left-8">
       <div className="relative">
-        <div className="mb-2 rounded-2xl bg-white px-4 py-2 shadow-lg">
+        {/* Speech Bubble */}
+        <div className="mb-2 rounded-2xl bg-white px-3 py-2 shadow-lg md:px-4 md:py-2">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{currentEncouragement.emoji}</span>
-            <span className="font-bold text-brand-brown-stroke">
+            <span className="text-base md:text-lg">
+              {currentEncouragement.emoji}
+            </span>
+            <span className="text-sm font-bold text-brand-brown-stroke md:text-base">
               {currentEncouragement.text}
             </span>
           </div>
-          <div className="absolute -bottom-1 left-6 size-3 rotate-45 bg-white"></div>
+          <div className="absolute -bottom-1 left-4 size-3 rotate-45 bg-white md:left-6"></div>
         </div>
-        <div className="rounded-full bg-gradient-to-br from-brand-yellow to-orange-400 p-2 shadow-lg">
+
+        {/* Mascot Image - Tanpa lingkaran kuning */}
+        <div className="ml-2">
           <Image
-            src="/images/maskot-netral.png"
+            src="/images/semangat.png"
             alt="Maskot"
-            width={60}
-            height={60}
-            className="rounded-full"
+            width={100}
+            height={100}
+            className="size-20 rounded-full drop-shadow-lg md:size-24 lg:size-28"
           />
         </div>
       </div>

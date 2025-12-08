@@ -202,7 +202,7 @@ export default function LoginPage() {
         </div>
       </main>
 
-      <div className="pointer-events-none absolute bottom-0 right-0 z-20 w-36 md:w-52 lg:w-64 xl:w-72">
+      <div className="pointer-events-none absolute bottom-[-55px] right-0 z-20 w-60 md:w-72 lg:w-80 xl:w-96">
         <Image
           src="/images/mascot-cropped-1-tp 1.png"
           alt="Mascot Cerdas Isyarat"

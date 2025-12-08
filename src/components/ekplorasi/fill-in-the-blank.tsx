@@ -4,15 +4,21 @@ import clsx from 'clsx';
 import { QuestionDisplay } from './question-displays';
 import { FillInTheBlankQuestion } from '@/types';
 
+interface FillInTheBlankModeProps {
+  question: FillInTheBlankQuestion;
+  savedAnswer: string;
+  onAnswerChange: (answer: string) => void;
+  onImageLoad?: () => void;
+  onImageError?: () => void;
+}
+
 export const FillInTheBlankMode = ({
   question,
   savedAnswer,
   onAnswerChange,
-}: {
-  question: FillInTheBlankQuestion;
-  savedAnswer: string;
-  onAnswerChange: (answer: string) => void;
-}) => {
+  onImageLoad,
+  onImageError,
+}: FillInTheBlankModeProps) => {
   const answerLength = question.correctAnswer.length;
   const keyboardRows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
@@ -28,6 +34,8 @@ export const FillInTheBlankMode = ({
       <QuestionDisplay
         questionAsset={question.questionAsset}
         questionText={question.questionText}
+        onImageLoad={onImageLoad}
+        onImageError={onImageError}
       />
       <div className="flex items-center justify-center gap-2">
         {Array.from({ length: answerLength }).map((_, i) => (
