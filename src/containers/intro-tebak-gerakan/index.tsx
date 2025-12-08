@@ -484,11 +484,11 @@ export default function IntroTebakGerakanPage() {
                     </div>
                     <div className="flex aspect-square items-center justify-center rounded-lg border-2 border-orange-200/50 bg-gradient-to-br from-orange-100/50 to-yellow-100/50 shadow-inner">
                       <Image
-                        src="/images/placeholder-materi.png"
+                        src="/images/bisindo.png"
                         width={48}
                         height={48}
                         alt="Contoh Gerakan"
-                        className="size-12 object-contain"
+                        className="size-full object-contain"
                       />
                     </div>
                   </div>
@@ -500,13 +500,17 @@ export default function IntroTebakGerakanPage() {
                         3
                       </div>
                       <h3 className="font-comic text-[10px] font-bold leading-tight text-brand-brown-stroke">
-                        TIRU & POIN
+                        TIRU & DAPATKAN POIN
                       </h3>
                     </div>
                     <div className="flex aspect-square items-center justify-center rounded-lg border-2 border-orange-200/50 bg-gradient-to-br from-orange-100/50 to-yellow-100/50 shadow-inner">
-                      <p className="text-3xl font-bold text-brand-brown-stroke">
-                        ?
-                      </p>
+                      <Image
+                        src="/images/tiru.jpg"
+                        width={48}
+                        height={48}
+                        alt="Contoh Gerakan"
+                        className="size-full object-contain"
+                      />
                     </div>
                   </div>
                 </div>
