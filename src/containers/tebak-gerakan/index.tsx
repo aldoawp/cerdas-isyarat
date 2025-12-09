@@ -67,7 +67,7 @@ const useIsDesktop = (breakpoint = 1024) => {
   return isDesktop;
 };
 
-const TOTAL_TIME_SECONDS = 5 * 60;
+const TOTAL_TIME_SECONDS = 2 * 60;
 const MOVEMENT_THRESHOLD = 0.08;
 const STILLNESS_FRAMES_TRIGGER = 30;
 const HISTORY_BUFFER_SIZE = 10;
@@ -239,7 +239,7 @@ export default function TebakGerakanPage() {
       if (landmarks.length === 0) return undefined;
       try {
         const response = await fetch(
-          'https://aiskripsibisindo-production.up.railway.app/predict_landmarks',
+          'https://aiskripsibisindo-production-e734.up.railway.app',
 
           {
             method: 'POST',

@@ -102,7 +102,7 @@ export default function OnboardingPage() {
         </div>
       </main>
 
-      <div className="pointer-events-none absolute bottom-0 right-0 z-20 w-32 md:w-48 lg:w-56 xl:w-64">
+      <div className="pointer-events-none absolute bottom-0 right-0 z-20 w-48 md:w-64 lg:w-72 xl:w-80">
         <Image
           src="/images/mascot2.png"
           alt="Mascot Cerdas Isyarat"
