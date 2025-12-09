@@ -239,7 +239,7 @@ export default function TebakGerakanPage() {
       if (landmarks.length === 0) return undefined;
       try {
         const response = await fetch(
-          'https://aiskripsibisindo-production-e734.up.railway.app',
+          'https://aiskripsibisindo-production-e734.up.railway.app/predict_landmarks',
 
           {
             method: 'POST',
