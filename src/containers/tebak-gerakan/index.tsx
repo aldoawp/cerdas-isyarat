@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useRef,
   useCallback,
-  useLayoutEffect, // 1. TAMBAHKAN INI
+  useLayoutEffect,
 } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -17,13 +17,16 @@ import QuestionCounter from '@/components/tebak-gerakan/question-counter';
 import ScoreDisplay from '@/components/tebak-gerakan/score-display';
 import TimerDisplay from '@/components/tebak-gerakan/timer-display';
 import { Movement } from '@/types';
-import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import {
+  useRequireAuth,
+  usePageLoading,
+  useAuth,
+} from '@/lib/contexts/auth-context'; // Import useAuth
 import LoadingScreen from '@/components/shared/loading-screen';
-
 import { aslAlphabetMovements } from '@/dummy/tebak-gerakan-data';
-
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { drawConnectors, drawLandmarks } from '@/lib/utils/drawing-utils';
+import { saveGameScore } from '@/services/tebak-gerakan-service'; // Pastikan path ini benar
 
 const HAND_CONNECTIONS: [number, number][] = [
   [0, 1],
@@ -49,7 +52,6 @@ const HAND_CONNECTIONS: [number, number][] = [
   [19, 20],
 ];
 
-// 2. TAMBAHKAN HOOK INI (Default 'lg' breakpoint Tailwind adalah 1024px)
 const useIsDesktop = (breakpoint = 1024) => {
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -58,8 +60,7 @@ const useIsDesktop = (breakpoint = 1024) => {
       setIsDesktop(window.innerWidth >= breakpoint);
     };
 
-    updateMedia(); // Set nilai awal saat komponen dimuat di client
-
+    updateMedia();
     window.addEventListener('resize', updateMedia);
     return () => window.removeEventListener('resize', updateMedia);
   }, [breakpoint]);
@@ -67,7 +68,7 @@ const useIsDesktop = (breakpoint = 1024) => {
   return isDesktop;
 };
 
-const TOTAL_TIME_SECONDS = 2 * 60;
+const TOTAL_TIME_SECONDS = 5;
 const MOVEMENT_THRESHOLD = 0.08;
 const STILLNESS_FRAMES_TRIGGER = 30;
 const HISTORY_BUFFER_SIZE = 10;
@@ -75,10 +76,11 @@ const JEDA_ANTAR_SOAL_DETIK = 3;
 
 export default function TebakGerakanPage() {
   const router = useRouter();
+  const { user } = useAuth(); // Ambil user dari context
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
 
-  const isDesktop = useIsDesktop(); // 3. PANGGIL HOOKNYA
+  const isDesktop = useIsDesktop();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -99,7 +101,7 @@ export default function TebakGerakanPage() {
   const [shuffledMovements, setShuffledMovements] = useState<Movement[]>([]);
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME_SECONDS);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [score, setScore] = useState(0);
+  const [score, setScore] = useState(120);
   const [isProcessing, setIsProcessing] = useState(false);
   const [predictionResult, setPredictionResult] = useState('');
   const [realtimePrediction, setRealtimePrediction] = useState('');
@@ -116,11 +118,39 @@ export default function TebakGerakanPage() {
 
   const currentMovement = shuffledMovements[currentQuestionIndex];
 
-  const handleGameEnd = useCallback(() => {
+  // --- LOGIC END GAME DIPERBARUI ---
+  const handleGameEnd = useCallback(async () => {
+    if (!user?.id) {
+      router.push('/login');
+      return;
+    }
+
+    try {
+      // Simpan skor ke database
+      await saveGameScore({
+        userId: user.id,
+        score,
+        correctAnswers,
+        totalQuestions: shuffledMovements.length,
+        gameDuration: TOTAL_TIME_SECONDS - timeLeft,
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to save score:', error);
+      // Lanjut redirect meski gagal simpan (opsional: tampilkan toast error)
+    }
+
     router.push(
       `/tebak-gerakan/hasil?score=${score}&correct=${correctAnswers}&total=${shuffledMovements.length}`
     );
-  }, [router, score, correctAnswers, shuffledMovements.length]);
+  }, [
+    router,
+    score,
+    correctAnswers,
+    shuffledMovements.length,
+    timeLeft,
+    user?.id,
+  ]);
 
   const handleCameraDisconnect = useCallback(() => setIsCameraReady(false), []);
 
@@ -166,22 +196,11 @@ export default function TebakGerakanPage() {
             videoRef.current
               .play()
               .then(() => {
-                console.log('✅ Video playing');
-                console.log(
-                  'Video dimensions:',
-                  videoRef.current?.videoWidth,
-                  'x',
-                  videoRef.current?.videoHeight
-                );
-                console.log('Video element:', videoRef.current);
-                console.log(
-                  'Computed style:',
-                  globalThis.getComputedStyle(videoRef.current!)
-                );
                 setIsCameraReady(true);
                 setShowPermissionModal(false);
               })
               .catch(error => {
+                // eslint-disable-next-line no-console
                 console.error('Error playing video:', error);
                 setShowPermissionModal(true);
               });
@@ -260,6 +279,7 @@ export default function TebakGerakanPage() {
         }
         return prediction;
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Prediction error:', error);
         if (isRealtime) setRealtimePrediction('Error');
         else setPredictionResult('Error');
@@ -364,7 +384,6 @@ export default function TebakGerakanPage() {
         return;
       }
 
-      // Set canvas size to match video
       if (
         canvas.width !== video.videoWidth ||
         canvas.height !== video.videoHeight
@@ -547,9 +566,8 @@ export default function TebakGerakanPage() {
       </header>
 
       <main className="mx-auto flex w-full max-w-6xl flex-grow items-center justify-center px-2 sm:px-4 lg:-mt-4">
-        {/* 4. GUNAKAN CONDITIONAL RENDERING */}
         {isDesktop ? (
-          /* Desktop Layout - HILANGKAN 'hidden' dan 'lg:grid' */
+          /* Desktop Layout */
           <div className="grid w-full grid-cols-2 items-center gap-8">
             <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center">
               <div className="relative mb-2">
@@ -696,7 +714,7 @@ export default function TebakGerakanPage() {
             </div>
           </div>
         ) : (
-          /* Mobile Layout - HILANGKAN 'lg:hidden' */
+          /* Mobile Layout */
           <div className="flex w-full flex-col items-center justify-center">
             {/* Mobile Info Bar - Above Camera */}
             <div className="mb-3 flex w-full max-w-md items-center justify-between gap-2 px-2">

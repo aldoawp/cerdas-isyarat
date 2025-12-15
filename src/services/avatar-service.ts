@@ -1,21 +1,24 @@
 import { createClient } from '@/lib/supabase/client';
 
+// Sesuaikan interface dengan kebutuhan UI (tetap butuh image_url untuk <Image/>)
+// Tapi kita akan ambil datanya lewat relasi UUID
 export interface UserAvatar {
   avatar_id: string;
   name: string;
-  image_url: string;
+  image_url: string; // Ini nanti hasil mapping dari assets.url
   is_default: boolean;
   display_order: number;
 }
 
 /**
- * Mengambil semua opsi avatar untuk ditampilkan di menu ganti avatar
+ * Mengambil semua avatar dengan men-join table 'avatars' dan 'assets'
  */
 export const getAllAvatars = async (): Promise<UserAvatar[]> => {
   const supabase = createClient();
 
+  // Query ke table 'avatars', dan join ke 'assets' via image_asset_id
   const { data, error } = await supabase
-    .from('avatars')
+    .from('avatars') // Pastikan nama table sesuai SQL: 'avatars'
     .select(
       `
       avatar_id,
@@ -23,7 +26,9 @@ export const getAllAvatars = async (): Promise<UserAvatar[]> => {
       is_default,
       display_order,
       image_asset_id,
-      assets ( url )
+      assets (
+        url
+      )
     `
     )
     .order('display_order', { ascending: true });
@@ -33,17 +38,20 @@ export const getAllAvatars = async (): Promise<UserAvatar[]> => {
     return [];
   }
 
+  // Mapping hasil query Supabase agar sesuai format yang UI butuhkan
+  // Mengambil URL dari dalam object 'assets'
   return data.map((item: any) => ({
     avatar_id: item.avatar_id,
     name: item.name,
     is_default: item.is_default,
     display_order: item.display_order,
+    // Jika asset ditemukan ambil url-nya, jika tidak pakai string kosong/placeholder
     image_url: item.assets?.url || '',
   }));
 };
 
 /**
- * Update avatar user (Menyimpan pilihan user ke database)
+ * Update avatar user (Hanya kirim UUID avatar_id)
  */
 export const updateUserAvatar = async (
   userId: string,
@@ -53,7 +61,7 @@ export const updateUserAvatar = async (
 
   const { error } = await supabase
     .from('users')
-    .update({ avatar_id: avatarId }) // Ini yang menyimpan ke DB
+    .update({ avatar_id: avatarId }) // Kirim UUID
     .eq('user_id', userId);
 
   if (error) {
@@ -62,43 +70,25 @@ export const updateUserAvatar = async (
 };
 
 /**
- * Ambil avatar user saat ini (Dengan Fail-safe Default)
+ * Ambil avatar user saat ini
  */
 export const getUserAvatar = async (
   userId: string
 ): Promise<UserAvatar | undefined> => {
   const supabase = createClient();
 
-  // 1. Cek avatar_id yang dimiliki user sekarang
+  // 1. Ambil avatar_id dari user
   const { data: userData, error: userError } = await supabase
     .from('users')
     .select('avatar_id')
     .eq('user_id', userId)
     .single();
 
-  if (userError) return undefined;
-
-  let targetAvatarId = userData?.avatar_id;
-
-  // 2. Jika user belum punya avatar (NULL), cari avatar default dari table avatars
-  if (!targetAvatarId) {
-    const { data: defaultAvatar } = await supabase
-      .from('avatars')
-      .select('avatar_id')
-      .eq('is_default', true)
-      .limit(1)
-      .single();
-
-    // Jika ada default, gunakan ID itu sementara (tanpa save ke DB dulu, hanya display)
-    if (defaultAvatar) {
-      targetAvatarId = defaultAvatar.avatar_id;
-    } else {
-      // Jika tidak ada default sama sekali di DB, return undefined (akan error di UI jika tidak dihandle)
-      return undefined;
-    }
+  if (userError || !userData?.avatar_id) {
+    return undefined;
   }
 
-  // 3. Ambil detail avatar berdasarkan ID yang didapat (Entah itu pilihan user atau default)
+  // 2. Ambil detail avatar dari table 'avatars' join 'assets'
   const { data: avatarData, error: avatarError } = await supabase
     .from('avatars')
     .select(
@@ -107,16 +97,19 @@ export const getUserAvatar = async (
       name,
       is_default,
       display_order,
-      assets ( url )
+      assets (
+        url
+      )
     `
     )
-    .eq('avatar_id', targetAvatarId)
+    .eq('avatar_id', userData.avatar_id)
     .single();
 
   if (avatarError || !avatarData) {
     return undefined;
   }
 
+  // Mapping hasil ke format UserAvatar
   return {
     avatar_id: avatarData.avatar_id,
     name: avatarData.name,

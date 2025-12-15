@@ -5,7 +5,16 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import clsx from 'clsx';
 import { useAuth } from '@/lib/contexts/auth-context';
-import { useUserProgress, avatars } from '@/lib/hooks/use-user-progress';
+import { useUserProgress } from '@/lib/hooks/use-user-progress';
+import {
+  getAllAvatars,
+  updateUserAvatar,
+  getUserAvatar,
+  type UserAvatar,
+} from '@/services/avatar-service';
+import { getUserRank } from '@/services/tebak-gerakan-service';
+import { getDisplayName } from '@/lib/utils/name-utils';
+import LeaderboardModal from '@/components/tebak-gerakan/leaderboard';
 
 // --- TYPE DEFINITIONS ---
 interface UserInfoProps {
@@ -13,7 +22,9 @@ interface UserInfoProps {
   level: number;
   xp: number;
   lives: number;
-  avatar: string;
+  avatar?: string; // Changed from string | null | undefined to optional string
+  isLoading: boolean;
+  rank?: number; // Changed from number | null to optional number
   onAvatarClick: () => void;
   onLogoutClick: () => void;
 }
@@ -111,13 +122,13 @@ const LoadingSpinner = ({ className = '' }: { className?: string }) => (
 const LoadingSkeleton = ({ mode }: { mode: DisplayMode }) => {
   if (mode === 'sidebar' || mode === 'dropdown') {
     return (
-      <div className="flex size-14 items-center justify-center rounded-full border-4 border-input-border bg-amber-500/50 shadow-xl">
+      <div className="fixed right-16 top-2 z-50 flex size-12 items-center justify-center rounded-full border-4 border-input-border bg-amber-500/50 shadow-xl sm:right-20 sm:top-4 sm:size-14">
         <LoadingSpinner className="size-6" />
       </div>
     );
   }
 
-  // Card mode
+  // Card mode skeleton
   return (
     <div className="w-full max-w-md animate-pulse rounded-2xl border-4 border-yellow-400/80 bg-form-bg/90 p-4 shadow-lg backdrop-blur-sm">
       <div className="flex items-center gap-4">
@@ -132,15 +143,25 @@ const LoadingSkeleton = ({ mode }: { mode: DisplayMode }) => {
   );
 };
 
+// --- HELPER COMPONENT: Rank Medal ---
+const RankMedal = ({ rank }: { rank?: number }) => {
+  if (rank === 1) return <span className="text-xl drop-shadow-md">🥇</span>;
+  if (rank === 2) return <span className="text-xl drop-shadow-md">🥈</span>;
+  if (rank === 3) return <span className="text-xl drop-shadow-md">🥉</span>;
+  return undefined;
+};
+
 // --- MODAL COMPONENTS ---
 const AvatarModal = ({
   isOpen,
   onClose,
   onSelect,
+  avatarList,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (avatar: string) => void;
+  onSelect: (avatar: UserAvatar) => void;
+  avatarList: UserAvatar[];
 }) => {
   const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>(
     {}
@@ -149,12 +170,12 @@ const AvatarModal = ({
   useEffect(() => {
     if (isOpen) {
       const loadingStates: { [key: string]: boolean } = {};
-      for (const avatar of avatars) {
-        loadingStates[avatar] = true;
+      for (const avatar of avatarList) {
+        loadingStates[avatar.avatar_id] = true;
       }
       setImageLoading(loadingStates);
     }
-  }, [isOpen]);
+  }, [isOpen, avatarList]);
 
   if (!isOpen) return undefined;
 
@@ -171,28 +192,33 @@ const AvatarModal = ({
           Pilih Avatarmu!
         </h3>
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
-          {avatars.map((avatar, index) => (
+          {avatarList.map(avatar => (
             <button
-              key={index}
+              key={avatar.avatar_id}
               onClick={() => onSelect(avatar)}
-              className="relative aspect-square rounded-full bg-input-bg p-2 transition hover:scale-110 hover:bg-yellow-400"
+              className="relative aspect-square rounded-full bg-yellow-200 p-1 transition hover:scale-110 hover:ring-4 hover:ring-yellow-400"
+              aria-label={`Select ${avatar.name}`}
             >
-              {imageLoading[avatar] && (
-                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-input-bg/80">
+              {imageLoading[avatar.avatar_id] && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-yellow-200">
                   <LoadingSpinner className="size-6" />
                 </div>
               )}
-              <Image
-                src={avatar}
-                alt={`Avatar ${index + 1}`}
-                fill
-                onLoad={() =>
-                  setImageLoading(prev => ({ ...prev, [avatar]: false }))
-                }
-                className={`rounded-full object-cover transition-opacity ${
-                  imageLoading[avatar] ? 'opacity-0' : 'opacity-100'
-                }`}
-              />
+              {avatar.image_url && (
+                <Image
+                  src={avatar.image_url}
+                  alt={avatar.name}
+                  fill
+                  sizes="(max-width: 768px) 33vw, 20vw"
+                  onLoad={() =>
+                    setImageLoading(prev => ({
+                      ...prev,
+                      [avatar.avatar_id]: false,
+                    }))
+                  }
+                  className={`rounded-full object-cover transition-opacity ${imageLoading[avatar.avatar_id] ? 'opacity-0' : 'opacity-100'}`}
+                />
+              )}
             </button>
           ))}
         </div>
@@ -246,17 +272,25 @@ const LogoutModal = ({
 };
 
 // --- UI CONTENT COMPONENTS ---
+
+// Helper to convert possible nulls to undefined or valid string
+const getValidAvatar = (avatar?: string | null): string | undefined => {
+  return avatar && avatar.trim() !== '' ? avatar : undefined;
+};
+
 const UserInfoSidebarContent = ({
   fullName,
   level,
   xp,
   lives,
   avatar,
+  isLoading,
   onAvatarClick,
   onLogoutClick,
 }: UserInfoProps) => {
-  const [avatarLoading, setAvatarLoading] = useState(true);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const isXpMax = xp === 100;
+  const validAvatar = getValidAvatar(avatar);
 
   return (
     <div className="flex size-full flex-col p-4">
@@ -264,30 +298,34 @@ const UserInfoSidebarContent = ({
         <button
           onClick={onAvatarClick}
           className="group relative size-24 flex-shrink-0"
+          aria-label="Change Avatar"
         >
-          {avatarLoading && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-yellow-200">
+          {(isLoading || !validAvatar || !imgLoaded) && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-full bg-yellow-200">
               <LoadingSpinner className="size-8" />
             </div>
           )}
-          <Image
-            src={avatar}
-            alt="User Avatar"
-            width={96}
-            height={96}
-            onLoad={() => setAvatarLoading(false)}
-            className={`rounded-full border-4 border-white bg-yellow-200 object-cover transition-opacity ${
-              avatarLoading ? 'opacity-0' : 'opacity-100'
-            }`}
-          />
-          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
+          <div className="relative size-full overflow-hidden rounded-full border-4 border-white bg-yellow-200">
+            {!isLoading && validAvatar && (
+              <Image
+                src={validAvatar}
+                alt={`${fullName}'s Avatar`}
+                fill
+                sizes="96px"
+                onLoad={() => setImgLoaded(true)}
+                className={`object-cover transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+              />
+            )}
+          </div>
+          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
             <span className="text-sm font-bold text-white">Ganti</span>
           </div>
         </button>
         <h3 className="w-full truncate text-2xl font-bold text-brand-yellow drop-shadow-lg text-stroke-sm">
-          {fullName}
+          {getDisplayName(fullName)}
         </h3>
       </div>
+
       <div className="mt-5 flex-grow space-y-4">
         <div>
           <div className="flex justify-between text-sm font-bold text-subtitle-cream drop-shadow-lg">
@@ -347,41 +385,50 @@ const UserInfoDesktopContent = ({
   xp,
   lives,
   avatar,
+  isLoading,
+  rank,
   onAvatarClick,
   onLogoutClick,
 }: UserInfoProps) => {
-  const [avatarLoading, setAvatarLoading] = useState(true);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const isXpMax = xp === 100;
+  const validAvatar = getValidAvatar(avatar);
 
   return (
     <div className="flex w-full items-center gap-4 p-3">
       <button
         onClick={onAvatarClick}
         className="group relative size-20 flex-shrink-0"
+        aria-label="Change Avatar"
       >
-        {avatarLoading && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-yellow-200">
+        {(isLoading || !validAvatar || !imgLoaded) && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-full bg-yellow-200">
             <LoadingSpinner className="size-6" />
           </div>
         )}
-        <Image
-          src={avatar}
-          alt="User Avatar"
-          width={80}
-          height={80}
-          onLoad={() => setAvatarLoading(false)}
-          className={`rounded-full border-4 border-white bg-yellow-200 object-cover transition-opacity ${
-            avatarLoading ? 'opacity-0' : 'opacity-100'
-          }`}
-        />
-        <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
+        <div className="relative size-full overflow-hidden rounded-full border-4 border-white bg-yellow-200">
+          {!isLoading && validAvatar && (
+            <Image
+              src={validAvatar}
+              alt={`${fullName}'s Avatar`}
+              fill
+              sizes="80px"
+              onLoad={() => setImgLoaded(true)}
+              className={`object-cover transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+            />
+          )}
+        </div>
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
           <span className="text-xs font-bold text-white">Ganti</span>
         </div>
       </button>
       <div className="flex-grow">
-        <h3 className="truncate text-2xl font-bold text-brand-yellow drop-shadow-lg text-stroke-sm">
-          {fullName}
-        </h3>
+        <div className="flex items-center gap-2">
+          <RankMedal rank={rank} />
+          <h3 className="truncate text-2xl font-bold text-brand-yellow drop-shadow-lg text-stroke-sm">
+            {getDisplayName(fullName)}
+          </h3>
+        </div>
         <div className="mt-1">
           <div className="flex justify-between text-sm font-bold text-subtitle-cream drop-shadow-lg">
             <span className="text-stroke-sm">Level {level}</span>
@@ -438,11 +485,14 @@ const UserInfoDropdownContent = ({
   xp,
   lives,
   avatar,
+  isLoading,
+  rank,
   onAvatarClick,
   onLogoutClick,
 }: UserInfoProps) => {
-  const [avatarLoading, setAvatarLoading] = useState(true);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const isXpMax = xp === 100;
+  const validAvatar = getValidAvatar(avatar);
 
   return (
     <div className="w-80 max-w-[90vw] rounded-xl border-4 border-yellow-400/80 bg-form-bg/95 p-4 shadow-2xl backdrop-blur-sm">
@@ -450,30 +500,36 @@ const UserInfoDropdownContent = ({
         <button
           onClick={onAvatarClick}
           className="group relative size-16 flex-shrink-0"
+          aria-label="Change Avatar"
         >
-          {avatarLoading && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-yellow-200">
+          {(isLoading || !validAvatar || !imgLoaded) && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-full bg-yellow-200">
               <LoadingSpinner className="size-5" />
             </div>
           )}
-          <Image
-            src={avatar}
-            alt="User Avatar"
-            width={64}
-            height={64}
-            onLoad={() => setAvatarLoading(false)}
-            className={`border-3 rounded-full border-white bg-yellow-200 object-cover transition-opacity ${
-              avatarLoading ? 'opacity-0' : 'opacity-100'
-            }`}
-          />
-          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
+          <div className="relative size-full overflow-hidden rounded-full border-[3px] border-white bg-yellow-200">
+            {!isLoading && validAvatar && (
+              <Image
+                src={validAvatar}
+                alt={`${fullName}'s Avatar`}
+                fill
+                sizes="64px"
+                onLoad={() => setImgLoaded(true)}
+                className={`object-cover transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+              />
+            )}
+          </div>
+          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition group-hover:opacity-100">
             <span className="text-xs font-bold text-white">Ganti</span>
           </div>
         </button>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-xl font-bold text-brand-yellow drop-shadow-lg text-stroke-sm">
-            {fullName}
-          </h3>
+          <div className="flex items-center gap-2">
+            <RankMedal rank={rank} />
+            <h3 className="truncate text-xl font-bold text-brand-yellow drop-shadow-lg text-stroke-sm">
+              {getDisplayName(fullName)}
+            </h3>
+          </div>
           <div className="mt-2">
             <div className="flex justify-between text-sm font-bold text-subtitle-cream drop-shadow-lg">
               <span className="text-stroke-sm">Level {level}</span>
@@ -539,19 +595,59 @@ export default function UserDetail({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
-  const { signOut } = useAuth();
-  const {
-    progressData,
-    userProfile,
-    loading,
-    error: _error,
-    updateAvatar,
-  } = useUserProgress();
+  // Data State - Initialize with undefined instead of null
+  const [avatarList, setAvatarList] = useState<UserAvatar[]>([]);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | undefined>(
+    undefined
+  );
+  const [isCheckingAvatar, setIsCheckingAvatar] = useState(true);
+  const [rank, setRank] = useState<number | undefined>(undefined);
+
+  const { user, signOut } = useAuth();
+  const { progressData, userProfile, loading, updateAvatar } =
+    useUserProgress();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Fetch Avatar & Rank
+  useEffect(() => {
+    if (!user?.id) return;
+
+    setIsCheckingAvatar(true);
+
+    const fetchData = async () => {
+      try {
+        const avatarsData = await getAllAvatars();
+        setAvatarList(avatarsData);
+
+        const userAvatar = await getUserAvatar(user.id);
+
+        if (userAvatar && userAvatar.image_url) {
+          setCurrentAvatarUrl(userAvatar.image_url);
+        } else if (avatarsData.length > 0) {
+          const defaultAvatar =
+            avatarsData.find(a => a.is_default) || avatarsData[0];
+          // Use optional chaining and logical OR with undefined
+          setCurrentAvatarUrl(defaultAvatar?.image_url || undefined);
+        }
+
+        // Fetch rank and handle null from service
+        const userRank = await getUserRank(user.id);
+        setRank(userRank ?? undefined);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load user data:', error);
+      } finally {
+        setIsCheckingAvatar(false);
+      }
+    };
+
+    fetchData();
+  }, [user?.id]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -576,13 +672,35 @@ export default function UserDetail({
     }
   };
 
-  const handleAvatarSelect = (newAvatar: string) => {
-    updateAvatar(newAvatar);
-    setIsAvatarModalOpen(false);
+  const handleAvatarSelect = async (selectedAvatar: UserAvatar) => {
+    if (!user?.id) return;
+    try {
+      // Handle potential null/undefined from selectedAvatar
+      setCurrentAvatarUrl(selectedAvatar.image_url || undefined);
+      setIsAvatarModalOpen(false);
+      await updateUserAvatar(user.id, selectedAvatar.avatar_id);
+      updateAvatar(selectedAvatar.image_url);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Gagal update avatar:', error);
+    }
   };
 
-  // Show loading skeleton while fetching data
-  if (!isClient || loading) {
+  const isGlobalLoading = !isClient || loading || isCheckingAvatar;
+
+  // --- LOGIC POSISI FLOATING ---
+  const fixedPositionClasses = 'fixed right-16 top-2 z-50 sm:right-20 sm:top-4';
+
+  // LOGIKA DINAMIS POSISI LEADERBOARD:
+  // 1. Music Player ada di: right-2 (Mobile) / right-4 (Desktop).
+  // 2. Jika Mode Sidebar/Dropdown: User Menu muncul di right-16. Maka Leaderboard harus geser ke kiri (right-32).
+  // 3. Jika Mode Card: User Menu hilang (ada di card). Maka Leaderboard bisa menempati posisi User Menu (right-16).
+  const leaderboardButtonClasses =
+    mode === 'sidebar' || mode === 'dropdown'
+      ? 'right-32 top-2 sm:right-36 sm:top-4' // Posisi Jauh (Spot 2)
+      : 'right-16 top-2 sm:right-20 sm:top-4'; // Posisi Dekat (Spot 1 - Sebelah Music Player)
+
+  if (isGlobalLoading && mode === 'card') {
     return (
       <div className={className}>
         <LoadingSkeleton mode={mode} />
@@ -590,15 +708,27 @@ export default function UserDetail({
     );
   }
 
+  const finalAvatar = currentAvatarUrl;
+
   const userInfoProps: UserInfoProps = {
     fullName: userProfile.fullName,
     level: progressData.explorationLevel,
     xp: progressData.xp,
     lives: userProfile.lives ?? 3,
-    avatar: userProfile.avatar || avatars[0],
+    avatar: finalAvatar,
+    isLoading: isCheckingAvatar,
+    rank,
     onAvatarClick: () => setIsAvatarModalOpen(true),
     onLogoutClick: () => setIsLogoutModalOpen(true),
   };
+
+  if (isGlobalLoading && (mode === 'sidebar' || mode === 'dropdown')) {
+    return (
+      <div className={className}>
+        <LoadingSkeleton mode={mode} />
+      </div>
+    );
+  }
 
   return (
     <div className={className}>
@@ -606,12 +736,28 @@ export default function UserDetail({
         isOpen={isAvatarModalOpen}
         onClose={() => setIsAvatarModalOpen(false)}
         onSelect={handleAvatarSelect}
+        avatarList={avatarList}
       />
       <LogoutModal
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}
         onConfirm={confirmLogout}
       />
+      <LeaderboardModal
+        isOpen={isLeaderboardOpen}
+        onClose={() => setIsLeaderboardOpen(false)}
+        currentUserId={user?.id}
+      />
+
+      {/* --- TOMBOL LEADERBOARD (SELALU MUNCUL, POSISI DINAMIS) --- */}
+      <button
+        onClick={() => setIsLeaderboardOpen(true)}
+        className={`fixed z-50 flex size-12 items-center justify-center rounded-full border-4 border-input-border bg-gradient-to-r from-yellow-400 to-orange-500 shadow-xl transition-transform hover:scale-110 sm:size-14 ${leaderboardButtonClasses}`}
+        aria-label="Lihat Peringkat"
+        title="Lihat Peringkat"
+      >
+        <span className="text-2xl sm:text-3xl">🏆</span>
+      </button>
 
       {mode === 'card' && (
         <div className="w-full max-w-md rounded-2xl border-4 border-yellow-400/80 bg-form-bg/90 shadow-lg backdrop-blur-sm">
@@ -619,86 +765,93 @@ export default function UserDetail({
         </div>
       )}
 
-      {mode === 'sidebar' && (
-        <div>
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="relative flex size-14 items-center justify-center rounded-full border-4 border-input-border bg-amber-500 shadow-xl transition-transform hover:scale-110 active:scale-95"
-          >
-            <Image
-              src={userInfoProps.avatar}
-              alt="Buka Menu"
-              fill
-              className="rounded-full object-cover p-0.5"
-            />
-            <div className="absolute bottom-0 right-0 grid size-5 place-items-center rounded-full border-2 border-yellow-400 bg-form-bg">
-              <MenuIcon className="size-3 text-brand-yellow" />
-            </div>
-          </button>
-
+      {(mode === 'sidebar' || mode === 'dropdown') && (
+        <>
+          {/* Tombol User (Avatar) */}
           <div
-            className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity ${
-              isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-            }`}
-            onClick={() => setIsSidebarOpen(false)}
-          />
-
-          <div
-            className={`fixed left-0 top-0 z-50 h-full w-72 max-w-[80vw] transform border-r-4 border-yellow-400/80 bg-form-bg transition-transform duration-300 ease-in-out ${
-              isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-            }`}
+            className={fixedPositionClasses}
+            ref={mode === 'dropdown' ? dropdownRef : undefined}
           >
-            <div className="relative flex h-full flex-col">
-              <button
-                onClick={() => setIsSidebarOpen(false)}
-                className="absolute right-3 top-3 text-brand-yellow/80 hover:text-brand-yellow"
-              >
-                <CloseIcon className="size-7" />
-              </button>
-              <UserInfoSidebarContent {...userInfoProps} />
-            </div>
-          </div>
-        </div>
-      )}
+            <button
+              onClick={() =>
+                mode === 'sidebar'
+                  ? setIsSidebarOpen(true)
+                  : setIsDropdownOpen(!isDropdownOpen)
+              }
+              aria-label={
+                mode === 'sidebar' ? 'Open User Menu' : 'Toggle User Dropdown'
+              }
+              className="group relative flex size-12 items-center justify-center overflow-hidden rounded-full border-4 border-input-border bg-amber-500 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 sm:size-14"
+            >
+              <div className="relative size-full bg-yellow-200">
+                {!isCheckingAvatar && finalAvatar && (
+                  <Image
+                    src={finalAvatar}
+                    alt="Menu"
+                    fill
+                    sizes="56px"
+                    className="object-cover"
+                  />
+                )}
+              </div>
+              <div className="absolute bottom-0 right-0 grid size-4 place-items-center rounded-full border-2 border-yellow-400 bg-form-bg sm:size-5">
+                {mode === 'sidebar' ? (
+                  <MenuIcon className="size-2.5 text-brand-yellow sm:size-3" />
+                ) : (
+                  <ChevronDownIcon
+                    className={`size-2.5 text-brand-yellow transition-transform sm:size-3 ${isDropdownOpen ? 'rotate-180' : ''}`}
+                  />
+                )}
+              </div>
+            </button>
 
-      {mode === 'dropdown' && (
-        <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="relative flex size-14 items-center justify-center rounded-full border-4 border-input-border bg-amber-500 shadow-xl transition-transform hover:scale-110 active:scale-95"
-          >
-            <Image
-              src={userInfoProps.avatar}
-              alt="Buka Menu"
-              fill
-              className="rounded-full object-cover p-0.5"
-            />
-            <div className="absolute bottom-0 right-0 grid size-5 place-items-center rounded-full border-2 border-yellow-400 bg-form-bg">
-              <ChevronDownIcon
-                className={`size-3 text-brand-yellow transition-transform ${
-                  isDropdownOpen ? 'rotate-180' : ''
+            {/* Sidebar Content */}
+            {mode === 'sidebar' && (
+              <>
+                <div
+                  className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity ${
+                    isSidebarOpen
+                      ? 'opacity-100'
+                      : 'pointer-events-none opacity-0'
+                  }`}
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+                <div
+                  className={`fixed left-0 top-0 z-50 h-full w-72 max-w-[80vw] transform border-r-4 border-yellow-400/80 bg-form-bg transition-transform duration-300 ease-in-out ${
+                    isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                  }`}
+                >
+                  <div className="relative flex h-full flex-col">
+                    <button
+                      onClick={() => setIsSidebarOpen(false)}
+                      className="absolute right-3 top-3 text-brand-yellow/80 hover:text-brand-yellow"
+                      aria-label="Close Menu"
+                    >
+                      <CloseIcon className="size-7" />
+                    </button>
+                    <UserInfoSidebarContent {...userInfoProps} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Dropdown Content */}
+            {mode === 'dropdown' && (
+              <div
+                className={`absolute right-0 top-full z-50 mt-2 origin-top-right transform transition-all duration-200 ${
+                  isDropdownOpen
+                    ? 'scale-100 opacity-100'
+                    : 'pointer-events-none scale-95 opacity-0'
                 }`}
-              />
-            </div>
-          </button>
-
-          <div
-            className={`absolute right-0 top-full z-50 mt-2 origin-top-right transform transition-all duration-200 ${
-              isDropdownOpen
-                ? 'scale-100 opacity-100'
-                : 'pointer-events-none scale-95 opacity-0'
-            }`}
-          >
-            <UserInfoDropdownContent {...userInfoProps} />
+              >
+                <UserInfoDropdownContent {...userInfoProps} />
+              </div>
+            )}
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 }
 
-export {
-  getUserData,
-  updateUserData,
-  avatars,
-} from '@/lib/hooks/use-user-progress';
+export { getUserData, updateUserData } from '@/lib/hooks/use-user-progress';
