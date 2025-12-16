@@ -11,6 +11,7 @@ import MenuButton from '@/components/onboarding/menu-button';
 import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
 import { getUserData } from '@/components/shared/userinfo';
+import { useMascot } from '@/lib/hooks/use-mascot';
 
 export default function OnboardingPage() {
   const [firstName, setFirstName] = useState('');
@@ -18,11 +19,16 @@ export default function OnboardingPage() {
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
 
+  // Fetch mascot dari Supabase
+  const { mascotUrl } = useMascot(
+    'onboarding',
+    'bottom-right',
+    '/images/mascot2.png'
+  );
+
   useEffect(() => {
-    // Get user's actual name from localStorage
     const userData = getUserData();
-    if (userData && userData.fullName) {
-      // Extract only the first name (first word)
+    if (userData?.fullName) {
       const firstWord = userData.fullName.split(' ')[0];
       setFirstName(firstWord);
     } else {
@@ -30,23 +36,21 @@ export default function OnboardingPage() {
     }
   }, []);
 
-  // Show loading screen while page is loading or checking authentication
   if (isPageLoading || authLoading) {
     return <LoadingScreen message="Halaman sedang dimuat..." />;
   }
 
   if (!firstName) {
     return (
-      <div className="grid min-h-screen place-items-center bg-mobile-bg bg-cover bg-center md:bg-desktop-bg">
+      <div className="page-container grid min-h-screen place-items-center">
         <p className="text-2xl font-bold text-white">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+    <div className="page-container relative min-h-screen overflow-hidden font-sans">
       <header className="flex w-full justify-start p-4">
-        {/* Desktop: Mode Card, Mobile: Mode Sidebar */}
         <UserDetail
           mode={screenSize === 'mobile' ? 'sidebar' : 'card'}
           className={screenSize === 'mobile' ? '' : 'w-full max-w-md'}
@@ -66,7 +70,7 @@ export default function OnboardingPage() {
 
           <div className="grid gap-4 md:gap-6">
             <MenuButton
-              href="/eksplorasi" // <-- Ganti di sini
+              href="/eksplorasi"
               icon={<FunSearchIcon className="size-12 md:size-14" />}
               title="Eksplorasi Materi"
               colors={{
@@ -102,16 +106,19 @@ export default function OnboardingPage() {
         </div>
       </main>
 
-      <div className="pointer-events-none absolute bottom-0 right-0 z-20 w-48 md:w-64 lg:w-72 xl:w-80">
-        <Image
-          src="/images/mascot2.png"
-          alt="Mascot Cerdas Isyarat"
-          width={256}
-          height={325}
-          className="h-auto w-full"
-          priority
-        />
-      </div>
+      {/* Dynamic Mascot */}
+      {mascotUrl && (
+        <div className="pointer-events-none absolute bottom-0 right-0 z-20 w-48 md:w-64 lg:w-72 xl:w-80">
+          <Image
+            src={mascotUrl}
+            alt="Mascot Cerdas Isyarat"
+            width={256}
+            height={325}
+            className="h-auto w-full"
+            priority
+          />
+        </div>
+      )}
     </div>
   );
 }

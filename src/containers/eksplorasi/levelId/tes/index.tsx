@@ -44,7 +44,7 @@ export default function TestPage() {
   // Validate explorationId
   if (!explorationId || typeof explorationId !== 'string') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+      <div className="page-container flex min-h-screen items-center justify-center font-sans">
         <div className="text-center">
           <div className="mb-4 text-6xl">❌</div>
           <div className="text-2xl font-bold text-brand-brown-stroke">
@@ -69,7 +69,7 @@ export default function TestPage() {
   // Tampilan Loading
   if (questionsLoading || !testState || questions.length === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+      <div className="page-container flex min-h-screen items-center justify-center font-sans">
         <div className="text-center">
           <div className="mb-4 text-6xl">⏳</div>
           <div className="text-2xl font-bold text-brand-brown-stroke">
@@ -94,7 +94,7 @@ export default function TestPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+      <div className="page-container min-h-screen font-sans">
         <div className="flex min-h-screen flex-col">
           <GameHeader
             currentIndex={testState.currentQuestionIndex}

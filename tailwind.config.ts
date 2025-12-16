@@ -1,6 +1,6 @@
 import type { Config } from 'tailwindcss';
-import plugin from 'tailwindcss/plugin'; // [DIPERBAIKI] Menggunakan import ES Module
-import { PluginAPI } from 'tailwindcss/types/config'; // [DIPERBAIKI] Impor tipe untuk plugin
+import plugin from 'tailwindcss/plugin';
+import { PluginAPI } from 'tailwindcss/types/config';
 
 const config: Config = {
   content: [
@@ -11,10 +11,6 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      backgroundImage: {
-        'desktop-bg': "url('/images/(Desktop) Eksplorasi.png')",
-        'mobile-bg': "url('/images/(Mobile) Eksplorasi.png')",
-      },
       colors: {
         'brand-yellow': '#FED630',
         'brand-brown-stroke': '#CE7310',
@@ -60,26 +56,21 @@ const config: Config = {
     },
   },
   plugins: [
-    // [DIPERBAIKI] Memberikan tipe 'PluginAPI' untuk menghindari 'any'
     plugin(function ({ addUtilities, theme }: PluginAPI) {
       const textStrokeUtilities = {
         '.text-stroke-sm': {
-          // Ukuran 2px
           '-webkit-text-stroke': `2px ${theme('colors.brand-brown-stroke')}`,
           'paint-order': 'stroke fill',
         },
         '.text-stroke': {
-          // Ukuran 3px
           '-webkit-text-stroke': `3px ${theme('colors.brand-brown-stroke')}`,
           'paint-order': 'stroke fill',
         },
         '.text-stroke-base': {
-          // Ukuran 4px
           '-webkit-text-stroke': `4px ${theme('colors.brand-brown-stroke')}`,
           'paint-order': 'stroke fill',
         },
         '.text-stroke-md': {
-          // Ukuran 6px
           '-webkit-text-stroke': `6px ${theme('colors.brand-brown-stroke')}`,
           'paint-order': 'stroke fill',
         },

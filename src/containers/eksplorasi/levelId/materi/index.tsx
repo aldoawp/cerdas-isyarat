@@ -327,7 +327,7 @@ export default function MateriPage() {
           lanjut lagi nanti.
         </p>
       </ConfirmationModal>
-      <div className="flex h-screen flex-col overflow-hidden bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+      <div className="page-container flex h-screen flex-col overflow-hidden font-sans">
         <header className="flex items-center justify-between p-4">
           <div className="w-1/4">
             <BackButton onClick={handleBackClick} />

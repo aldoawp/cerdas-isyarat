@@ -68,7 +68,7 @@ const useIsDesktop = (breakpoint = 1024) => {
   return isDesktop;
 };
 
-const TOTAL_TIME_SECONDS = 5;
+const TOTAL_TIME_SECONDS = 180;
 const MOVEMENT_THRESHOLD = 0.08;
 const STILLNESS_FRAMES_TRIGGER = 30;
 const HISTORY_BUFFER_SIZE = 10;
@@ -101,7 +101,7 @@ export default function TebakGerakanPage() {
   const [shuffledMovements, setShuffledMovements] = useState<Movement[]>([]);
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME_SECONDS);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [score, setScore] = useState(120);
+  const [score, setScore] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [predictionResult, setPredictionResult] = useState('');
   const [realtimePrediction, setRealtimePrediction] = useState('');
@@ -521,7 +521,7 @@ export default function TebakGerakanPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+    <div className="page-container min-h-screen font-sans">
       <FunModal
         isOpen={showPermissionModal}
         onAction={() => router.push('/intro-tebak-gerakan')}

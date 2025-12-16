@@ -22,7 +22,7 @@ function HasilContent() {
   const incorrect = Number.parseInt(total, 10) - Number.parseInt(correct, 10);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-mobile-bg bg-cover bg-center p-4 font-sans md:bg-desktop-bg">
+    <div className="page-container flex min-h-screen flex-col items-center justify-center p-4 font-sans">
       <div className="w-full max-w-md rounded-3xl border-4 border-white/50 bg-gradient-to-br from-purple-100 via-blue-100 to-green-100 p-6 text-center shadow-2xl backdrop-blur-sm">
         <h1 className="font-comic text-4xl font-bold text-purple-800 drop-shadow-lg">
           Permainan Selesai!
@@ -98,7 +98,7 @@ export default function HasilPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-mobile-bg bg-cover bg-center md:bg-desktop-bg">
+        <div className="page-container flex min-h-screen items-center justify-center">
           <div className="text-center">
             <div className="inline-block size-12 animate-spin rounded-full border-4 border-solid border-purple-500 border-r-transparent"></div>
             <p className="mt-4 font-comic text-xl text-purple-800">

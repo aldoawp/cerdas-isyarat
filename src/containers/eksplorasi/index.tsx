@@ -23,8 +23,7 @@ import {
   getExplorationLevelsWithProgress,
   ProcessedExplorationLevel,
 } from '@/services/ekplorasi-service';
-
-// --- TIPE DATA ---
+import { useMascot } from '@/lib/hooks/use-mascot';
 
 const StudyOptionsModal = ({
   isOpen,
@@ -79,17 +78,26 @@ const NoLivesModal = ({
   onStudy: () => void;
   onCancel: () => void;
 }) => {
+  const { mascotUrl } = useMascot(
+    'no_lives_modal',
+    'center',
+    '/images/ulangi-materi.png'
+  );
+
   if (!isOpen) return undefined;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="m-4 w-full max-w-md animate-jump-in rounded-3xl border-4 border-brand-brown-stroke bg-form-bg p-8 text-center shadow-2xl drop-shadow-comic">
-        <Image
-          src="/images/maskot-sedih.png"
-          alt="Nyawa Habis"
-          width={100}
-          height={100}
-          className="mx-auto"
-        />
+        {mascotUrl && (
+          <Image
+            src={mascotUrl}
+            alt="Nyawa Habis"
+            width={100}
+            height={100}
+            className="mx-auto"
+          />
+        )}
         <h2 className="mt-4 text-3xl font-bold text-brand-yellow text-stroke-base">
           Yah, Nyawamu Habis!
         </h2>
@@ -127,11 +135,9 @@ const ProgressIndicator = ({
   currentStep?: number;
   totalSteps?: number;
 }) => {
-  // Calculate the proper percentage for the progress bar
   let progressPercentage = progress;
 
   if (isCurrentLevel && currentStep && totalSteps && totalSteps > 0) {
-    // For current level, calculate percentage from step number
     progressPercentage = Math.round((currentStep / totalSteps) * 100);
   }
 
@@ -169,12 +175,10 @@ const LevelCard = ({
     level.status === 'unlocked' &&
     level.learningProgress > 0 &&
     level.learningProgress < 100;
-  // Test is ready only when user has completed all learning modules
   const isTestReady =
     isCompleted || (level.status === 'unlocked' && level.isLearningComplete);
   const hasLives = lives > 0;
 
-  // [DIUBAH] Tombol "Belajar Materi" berubah teks jika nyawa habis dan tes sudah siap
   const studyButtonText =
     !hasLives && isTestReady ? 'Ulangi Materi' : 'Belajar Materi';
 
@@ -254,9 +258,6 @@ const LevelCard = ({
   );
 };
 
-// --- FUNGSI PEMROSESAN ---
-
-// --- KOMPONEN UTAMA HALAMAN EKSPLORASI ---
 export default function EksplorasiPage() {
   const router = useRouter();
   const { loading: authLoading } = useRequireAuth();
@@ -288,12 +289,9 @@ export default function EksplorasiPage() {
       const result = await getExplorationLevelsWithProgress(user.id);
       setLevels(result.levels);
 
-      // Get user lives from localStorage for now (you might want to move this to backend later)
       const userData = getUserData();
       setUserLives(userData?.lives ?? 3);
     } catch (error_) {
-      // eslint-disable-next-line no-console
-      console.error('Error loading exploration levels:', error_);
       setError(
         error_ instanceof Error ? error_.message : 'Failed to load levels'
       );
@@ -301,6 +299,7 @@ export default function EksplorasiPage() {
       setIsLoading(false);
     }
   }, [user?.id]);
+
   useEffect(() => {
     loadData();
     globalThis.addEventListener('userStateChange', loadData);
@@ -317,19 +316,15 @@ export default function EksplorasiPage() {
         level.status === 'completed' ||
         (level.status === 'unlocked' && level.isLearningComplete);
 
-      // [FIX] Jika nyawa habis DAN level sudah siap tes, maka "Belajar Materi" menjadi "Ulangi Materi"
-      // yang fungsinya mereset progress.
       if (userLives <= 0 && isTestReady) {
         resetLevelProgress(level.levelNumber);
         router.push(`/eksplorasi/${level.id}/materi`);
         return;
       }
 
-      // Jika ada progres dan nyawa masih ada, tawarkan untuk melanjutkan.
       if (level.learningProgress > 0) {
         setStudyModalState({ isOpen: true, level: level });
       } else {
-        // Jika tidak ada progres, langsung mulai belajar.
         router.push(`/eksplorasi/${level.id}/materi`);
       }
     },
@@ -355,7 +350,6 @@ export default function EksplorasiPage() {
   const handleCancelStudy = () =>
     setStudyModalState({ isOpen: false, level: undefined });
 
-  // [FIX] Fungsi ini HANYA dipanggil dari modal "Nyawa Habis"
   const handleGoToStudyFromNoLives = () => {
     if (noLivesModalState.level) {
       resetLevelProgress(noLivesModalState.level.levelNumber);
@@ -364,14 +358,12 @@ export default function EksplorasiPage() {
     setNoLivesModalState({ isOpen: false, level: undefined });
   };
 
-  // Show loading screen while page is loading or checking authentication
   if (isPageLoading || authLoading) {
     return <LoadingScreen message="Halaman sedang dimuat..." />;
   }
 
   return (
     <>
-      {/* [DIUBAH] onRestart dihapus dari sini */}
       <StudyOptionsModal
         isOpen={studyModalState.isOpen}
         onContinue={handleContinueStudy}
@@ -384,7 +376,8 @@ export default function EksplorasiPage() {
           setNoLivesModalState({ isOpen: false, level: undefined })
         }
       />
-      <div className="relative flex min-h-screen flex-col bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+      {/* GANTI: bg-mobile-bg bg-cover bg-center md:bg-desktop-bg → page-container */}
+      <div className="page-container relative flex min-h-screen flex-col font-sans">
         <header className="fixed inset-x-0 top-0 z-30 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">

@@ -15,6 +15,8 @@ import LeaderboardModal from '@/components/tebak-gerakan/leaderboard';
 import Image from 'next/image';
 import { CameraIcon, RefreshIcon, CloseIcon } from '@/components/icons';
 import InstructionCard from '@/components/intro-tebak-gerakan/instruction-card';
+import { useMascot } from '@/lib/hooks/use-mascot';
+
 import {
   useRequireAuth,
   usePageLoading,
@@ -46,6 +48,11 @@ export default function IntroTebakGerakanPage() {
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
   const isDesktop = useIsDesktop();
+  const { mascotUrl: rulesMascotUrl } = useMascot(
+    'rules',
+    'floating',
+    '/images/rule.png'
+  );
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | undefined>(undefined);
@@ -249,7 +256,7 @@ export default function IntroTebakGerakanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+    <div className="page-container min-h-screen font-sans">
       <RulesModal
         isOpen={isRulesModalOpen}
         onConfirm={confirmAndStartGame}
@@ -543,11 +550,11 @@ export default function IntroTebakGerakanPage() {
           </div>
         </main>
 
-        {isMascotVisible && (
+        {isMascotVisible && rulesMascotUrl && (
           <div className="pointer-events-none fixed bottom-0 right-0 z-20 w-20 md:w-48">
             <div className="relative">
               <Image
-                src="/images/rule.png"
+                src={rulesMascotUrl}
                 width={192}
                 height={243}
                 alt="Mascot"
