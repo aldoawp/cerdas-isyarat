@@ -22,9 +22,9 @@ interface UserInfoProps {
   level: number;
   xp: number;
   lives: number;
-  avatar?: string; // Changed from string | null | undefined to optional string
+  avatar?: string;
   isLoading: boolean;
-  rank?: number; // Changed from number | null to optional number
+  rank?: number;
   onAvatarClick: () => void;
   onLogoutClick: () => void;
 }
@@ -149,6 +149,16 @@ const RankMedal = ({ rank }: { rank?: number }) => {
   if (rank === 2) return <span className="text-xl drop-shadow-md">🥈</span>;
   if (rank === 3) return <span className="text-xl drop-shadow-md">🥉</span>;
   return undefined;
+};
+
+// ✨ NEW: Calculate XP based on learning progress (From Code 2)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const calculateLearningXP = (
+  progressStep: number,
+  totalSteps: number
+): number => {
+  if (totalSteps === 0) return 0;
+  return Math.min(100, Math.round((progressStep / totalSteps) * 100));
 };
 
 // --- MODAL COMPONENTS ---
@@ -289,7 +299,7 @@ const UserInfoSidebarContent = ({
   onLogoutClick,
 }: UserInfoProps) => {
   const [imgLoaded, setImgLoaded] = useState(false);
-  const isXpMax = xp === 100;
+  const isXpMax = xp >= 100; // ✅ UPDATE Code 2: Changed from === to >=
   const validAvatar = getValidAvatar(avatar);
 
   return (
@@ -335,7 +345,8 @@ const UserInfoSidebarContent = ({
                 'animate-pulse text-cyan-300': isXpMax,
               })}
             >
-              {isXpMax ? 'Tes Siap!' : `${xp}/100 XP`}
+              {/* ✅ UPDATE Code 2: Gunakan Math.min dan operator >= */}
+              {isXpMax ? 'Tes Siap!' : `${Math.min(xp, 100)}/100 XP`}
             </span>
           </div>
           <div
@@ -346,7 +357,7 @@ const UserInfoSidebarContent = ({
           >
             <div
               className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400 transition-all duration-300"
-              style={{ width: `${xp}%` }}
+              style={{ width: `${Math.min(xp, 100)}%` }}
             ></div>
           </div>
         </div>
@@ -391,7 +402,7 @@ const UserInfoDesktopContent = ({
   onLogoutClick,
 }: UserInfoProps) => {
   const [imgLoaded, setImgLoaded] = useState(false);
-  const isXpMax = xp === 100;
+  const isXpMax = xp >= 100; // ✅ UPDATE Code 2
   const validAvatar = getValidAvatar(avatar);
 
   return (
@@ -437,7 +448,8 @@ const UserInfoDesktopContent = ({
                 'animate-pulse text-cyan-300': isXpMax,
               })}
             >
-              {isXpMax ? 'Tes Siap!' : `${xp}/100 XP`}
+              {/* ✅ UPDATE Code 2 */}
+              {isXpMax ? 'Tes Siap!' : `${Math.min(xp, 100)}/100 XP`}
             </span>
           </div>
           <div
@@ -448,7 +460,7 @@ const UserInfoDesktopContent = ({
           >
             <div
               className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400 transition-all duration-300"
-              style={{ width: `${xp}%` }}
+              style={{ width: `${Math.min(xp, 100)}%` }}
             ></div>
           </div>
         </div>
@@ -491,7 +503,7 @@ const UserInfoDropdownContent = ({
   onLogoutClick,
 }: UserInfoProps) => {
   const [imgLoaded, setImgLoaded] = useState(false);
-  const isXpMax = xp === 100;
+  const isXpMax = xp >= 100; // ✅ UPDATE Code 2
   const validAvatar = getValidAvatar(avatar);
 
   return (
@@ -538,7 +550,8 @@ const UserInfoDropdownContent = ({
                   'animate-pulse text-cyan-300': isXpMax,
                 })}
               >
-                {isXpMax ? 'Tes Siap!' : `${xp}/100 XP`}
+                {/* ✅ UPDATE Code 2 */}
+                {isXpMax ? 'Tes Siap!' : `${Math.min(xp, 100)}/100 XP`}
               </span>
             </div>
             <div
@@ -549,7 +562,7 @@ const UserInfoDropdownContent = ({
             >
               <div
                 className="h-full rounded-full bg-gradient-to-r from-green-400 to-cyan-400 transition-all duration-300"
-                style={{ width: `${xp}%` }}
+                style={{ width: `${Math.min(xp, 100)}%` }}
               ></div>
             </div>
           </div>
@@ -597,7 +610,7 @@ export default function UserDetail({
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 
-  // Data State - Initialize with undefined instead of null
+  // Data State
   const [avatarList, setAvatarList] = useState<UserAvatar[]>([]);
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | undefined>(
     undefined
@@ -631,11 +644,10 @@ export default function UserDetail({
         } else if (avatarsData.length > 0) {
           const defaultAvatar =
             avatarsData.find(a => a.is_default) || avatarsData[0];
-          // Use optional chaining and logical OR with undefined
           setCurrentAvatarUrl(defaultAvatar?.image_url || undefined);
         }
 
-        // Fetch rank and handle null from service
+        // Fetch rank
         const userRank = await getUserRank(user.id);
         setRank(userRank ?? undefined);
       } catch (error) {
@@ -675,7 +687,6 @@ export default function UserDetail({
   const handleAvatarSelect = async (selectedAvatar: UserAvatar) => {
     if (!user?.id) return;
     try {
-      // Handle potential null/undefined from selectedAvatar
       setCurrentAvatarUrl(selectedAvatar.image_url || undefined);
       setIsAvatarModalOpen(false);
       await updateUserAvatar(user.id, selectedAvatar.avatar_id);
@@ -691,10 +702,6 @@ export default function UserDetail({
   // --- LOGIC POSISI FLOATING ---
   const fixedPositionClasses = 'fixed right-16 top-2 z-50 sm:right-20 sm:top-4';
 
-  // LOGIKA DINAMIS POSISI LEADERBOARD:
-  // 1. Music Player ada di: right-2 (Mobile) / right-4 (Desktop).
-  // 2. Jika Mode Sidebar/Dropdown: User Menu muncul di right-16. Maka Leaderboard harus geser ke kiri (right-32).
-  // 3. Jika Mode Card: User Menu hilang (ada di card). Maka Leaderboard bisa menempati posisi User Menu (right-16).
   const leaderboardButtonClasses =
     mode === 'sidebar' || mode === 'dropdown'
       ? 'right-32 top-2 sm:right-36 sm:top-4' // Posisi Jauh (Spot 2)
@@ -710,10 +717,13 @@ export default function UserDetail({
 
   const finalAvatar = currentAvatarUrl;
 
+  // ✅ NEW LOGIC CODE 2: Cap XP at 100 for display prop
+  const displayXP = Math.min(progressData.xp, 100);
+
   const userInfoProps: UserInfoProps = {
     fullName: userProfile.fullName,
     level: progressData.explorationLevel,
-    xp: progressData.xp,
+    xp: displayXP, // ✅ Use calculated XP
     lives: userProfile.lives ?? 3,
     avatar: finalAvatar,
     isLoading: isCheckingAvatar,
@@ -730,6 +740,7 @@ export default function UserDetail({
     );
   }
 
+  // ✅ RETURN JSX FROM CODE 1 (Restored)
   return (
     <div className={className}>
       <AvatarModal
@@ -749,7 +760,7 @@ export default function UserDetail({
         currentUserId={user?.id}
       />
 
-      {/* --- TOMBOL LEADERBOARD (SELALU MUNCUL, POSISI DINAMIS) --- */}
+      {/* --- TOMBOL LEADERBOARD --- */}
       <button
         onClick={() => setIsLeaderboardOpen(true)}
         className={`fixed z-50 flex size-12 items-center justify-center rounded-full border-4 border-input-border bg-gradient-to-r from-yellow-400 to-orange-500 shadow-xl transition-transform hover:scale-110 sm:size-14 ${leaderboardButtonClasses}`}

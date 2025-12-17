@@ -2,16 +2,21 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+// ✅ FIX: Hapus 'updateUserData' dari import karena tidak dipakai
 import { useUserProgress } from './use-user-progress';
+import { useAuth } from '@/lib/contexts/auth-context';
 import { getAssessmentQuestionsForExploration } from '@/services/ekplorasi-service';
 import { getExplorationLevelById } from '@/repositories/ekplorasi-repository';
+import { saveTestScore } from '@/repositories/test-scores-repository';
+import { updateUserProgress } from '@/repositories/users-progress-repository';
 import { TestSession, Question } from '@/types';
 
-export const TEST_DURATION_MS = 30 * 60 * 1000; // 30 menit
+export const TEST_DURATION_MS = 30 * 60 * 1000;
 
 export const useTest = (explorationId: string) => {
   const router = useRouter();
-  const { userProfile, decreaseLife, completeLevelAction } = useUserProgress();
+  const { user } = useAuth();
+  const { userProfile, decreaseLife } = useUserProgress();
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(true);
@@ -22,26 +27,25 @@ export const useTest = (explorationId: string) => {
   const [showResults, setShowResults] = useState(false);
   const [finalScore, setFinalScore] = useState({ score: 0, correct: 0 });
   const [isLeaving, setIsLeaving] = useState(false);
+  const [currentLevelNumber, setCurrentLevelNumber] = useState<number>(1);
   const hasFetched = useRef(false);
 
-  // Fetch questions from database
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
         setQuestionsLoading(true);
 
-        // Validate explorationId before making the request
         if (!explorationId || typeof explorationId !== 'string') {
           throw new Error(`Invalid explorationId: ${explorationId}`);
         }
 
-        // First, get the exploration level to get the level number
         const explorationLevel = await getExplorationLevelById(explorationId);
         if (!explorationLevel) {
           throw new Error(`Exploration level ${explorationId} not found`);
         }
 
-        // Then fetch the assessment questions
+        setCurrentLevelNumber(explorationLevel.levels);
+
         const assessmentQuestions = await getAssessmentQuestionsForExploration(
           explorationId,
           explorationLevel.levels
@@ -50,14 +54,12 @@ export const useTest = (explorationId: string) => {
         setQuestions(assessmentQuestions);
       } catch (error) {
         console.error('Error fetching assessment questions:', error);
-        // Fallback to empty array if there's an error
         setQuestions([]);
       } finally {
         setQuestionsLoading(false);
       }
     };
 
-    // Only fetch if we have a valid explorationId and haven't fetched yet
     if (explorationId && !hasFetched.current) {
       hasFetched.current = true;
       fetchQuestions();
@@ -72,7 +74,7 @@ export const useTest = (explorationId: string) => {
       savedStateRaw
         ? JSON.parse(savedStateRaw)
         : {
-            levelId: 0, // We'll get the actual level number from the exploration data
+            levelId: 0,
             currentQuestionIndex: 0,
             answers: {},
             startTime: Date.now(),
@@ -81,7 +83,8 @@ export const useTest = (explorationId: string) => {
   }, [explorationId]);
 
   const calculateAndFinalize = useCallback(async () => {
-    if (!testState) return;
+    if (!testState || !user?.id) return;
+
     let correctCount = 0;
     for (const q of questions) {
       const userAnswer = testState.answers[q.id];
@@ -92,19 +95,49 @@ export const useTest = (explorationId: string) => {
         correctCount++;
       }
     }
-    const score = Math.round((correctCount / questions.length) * 100);
 
-    // Check if score is below 80% (minimum required score)
-    if (score < 80) {
-      await decreaseLife('low_score');
+    const score = Math.round((correctCount / questions.length) * 100);
+    const passed = score >= 75;
+
+    try {
+      // 💾 Simpan skor tes
+      await saveTestScore({
+        userId: user.id,
+        explorationId,
+        levelNumber: currentLevelNumber,
+        score,
+        correctAnswers: correctCount,
+        totalQuestions: questions.length,
+        passed,
+      });
+
+      // 🔓 FIXED: Gunakan Ternary Operator untuk logic lulus/gagal (ESLint Fix)
+      await (passed
+        ? updateUserProgress({
+            userId: user.id,
+            explorationLevel: currentLevelNumber + 1, // Unlock level berikutnya
+            explorationProgress: 0, // Reset progress untuk level baru
+            xp: 0, // ✅ FIX: Reset XP ke 0
+          })
+        : decreaseLife('low_score'));
+    } catch (error) {
+      console.error('Error saving test score:', error);
     }
 
     setFinalScore({ score, correct: correctCount });
     setShowResults(true);
     localStorage.removeItem(`testState_exploration_${explorationId}`);
-  }, [testState, questions, explorationId, decreaseLife]);
+  }, [
+    testState,
+    questions,
+    explorationId,
+    currentLevelNumber,
+    user,
+    decreaseLife,
+  ]);
 
   const handleTimeUp = useCallback(async () => {
+    console.log('⏰ Time is up!');
     await decreaseLife('time_up');
     calculateAndFinalize();
   }, [calculateAndFinalize, decreaseLife]);
@@ -135,6 +168,7 @@ export const useTest = (explorationId: string) => {
   const handleSubmitTest = useCallback(() => {
     calculateAndFinalize();
   }, [calculateAndFinalize]);
+
   const handleAnswerChange = (answer: string) => {
     if (!testState) return;
     const currentQuestion = questions[testState.currentQuestionIndex];
@@ -147,6 +181,7 @@ export const useTest = (explorationId: string) => {
         : undefined
     );
   };
+
   const navigateQuestion = (direction: 'next' | 'prev') => {
     setTestState(prev => {
       if (!prev) return undefined;
@@ -160,30 +195,13 @@ export const useTest = (explorationId: string) => {
       return prev;
     });
   };
+
   const handleRetry = () => {
     localStorage.removeItem(`testState_exploration_${explorationId}`);
     globalThis.location.reload();
   };
 
   const handleNextLevel = async () => {
-    try {
-      // Get the actual level number from the exploration data
-      const explorationLevel = await getExplorationLevelById(explorationId);
-      if (explorationLevel) {
-        completeLevelAction(explorationLevel.levels);
-      } else {
-        console.error(
-          'Could not find exploration level for ID:',
-          explorationId
-        );
-        // Fallback to level 1 if we can't find the level
-        completeLevelAction(1);
-      }
-    } catch (error) {
-      console.error('Error getting exploration level:', error);
-      // Fallback to level 1 if there's an error
-      completeLevelAction(1);
-    }
     router.push('/eksplorasi');
   };
 

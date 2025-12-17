@@ -17,9 +17,20 @@ import {
 } from '@/types';
 import {
   getUserProgress,
-  updateUserProgress,
+  // 🔧 FIXED: Hapus updateUserProgress karena tidak dipakai
   UserProgress,
 } from '@/repositories/users-progress-repository';
+import {
+  getAllTestScores,
+  ExplorationTestScore,
+} from '@/repositories/test-scores-repository';
+import {
+  getAllLevelProgress,
+  getLevelProgress,
+  updateLevelProgress,
+  // 🔧 FIXED: Hapus getCurrentStepForLevel karena tidak dipakai
+  UserLevelProgress,
+} from '@/repositories/user-level-progress-repository';
 
 export interface ProcessedExplorationLevel {
   id: string;
@@ -28,10 +39,13 @@ export interface ProcessedExplorationLevel {
   description: string;
   imgUrl: string;
   status: 'locked' | 'unlocked' | 'completed';
-  learningProgress: number; // This will be percentage for completed levels, step number for current level
-  currentStep?: number; // Current step number for the current level
-  totalSteps?: number; // Total number of learning modules in this level
-  isLearningComplete?: boolean; // Whether all learning modules are completed
+  learningProgress: number;
+  currentStep?: number;
+  totalSteps?: number;
+  isLearningComplete?: boolean;
+  testScore?: number;
+  testPassed?: boolean;
+  attemptNumber?: number;
 }
 
 export interface ProcessedLearningModule {
@@ -47,70 +61,104 @@ export interface ExplorationLevelsResult {
   userProgress: UserProgress | undefined;
 }
 
-/**
- * Processes exploration levels with user progress to determine status and learning progress
- * @param levels - Raw exploration levels from database
- * @param userProgress - User's current progress
- * @returns ProcessedExplorationLevel[] - Levels with status and progress information
- */
+// 🔧 FIXED: Gunakan progress PER LEVEL dari table baru
 const processLevelsWithProgress = (
   levels: (ExplorationLevelWithAsset & { totalModules: number })[],
-  userProgress: UserProgress | undefined
+  userProgress: UserProgress | undefined,
+  testScores: ExplorationTestScore[],
+  levelProgressList: UserLevelProgress[] // ✨ Progress per level
 ): ProcessedExplorationLevel[] => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const currentLevel = userProgress?.exploration_level || 1;
-  const currentStep = userProgress?.exploration_progress || 0;
+
+  // Map scores by level number
+  const scoresMap = new Map<number, ExplorationTestScore>();
+  for (const score of testScores) {
+    scoresMap.set(score.level_number, score);
+  }
+
+  // ✅ CRITICAL FIX: Map progress by level number dari table baru
+  const progressMap = new Map<number, UserLevelProgress>();
+  for (const progress of levelProgressList) {
+    progressMap.set(progress.level_number, progress);
+  }
+
+  // Cari level tertinggi yang lulus
+  const highestPassedLevel = Math.max(
+    0,
+    ...testScores.filter(s => s.passed).map(s => s.level_number)
+  );
 
   return levels.map(level => {
+    const levelScore = scoresMap.get(level.levels);
+    const levelProgress = progressMap.get(level.levels); // ✅ Ambil progress LEVEL INI dari table baru
+
     let status: 'locked' | 'unlocked' | 'completed' = 'locked';
     let learningProgress = 0;
     let isLearningComplete = false;
 
-    if (level.levels < currentLevel) {
-      // Previous levels are completed
+    // Unlock logic
+    if (level.levels === 1) {
+      status = 'unlocked';
+    } else if (level.levels <= highestPassedLevel + 1) {
+      status = 'unlocked';
+    }
+
+    // Completed: Jika sudah lulus tes
+    if (levelScore && levelScore.passed) {
       status = 'completed';
       learningProgress = 100;
       isLearningComplete = true;
-    } else if (level.levels === currentLevel) {
-      // Only the current level is unlocked with current step from backend
-      status = 'unlocked';
-      learningProgress = currentStep; // This is now the step number (1, 2, 3, etc.)
-      // Check if user has completed all learning modules
-      isLearningComplete =
-        currentStep >= level.totalModules && level.totalModules > 0;
     }
-    // All other levels (including next levels) remain locked
+    // ✅ CRITICAL FIX: In Progress - Ambil dari levelProgress (table baru)
+    else if (status === 'unlocked' && levelProgress && level.totalModules > 0) {
+      // ✅ progress_step is 0-based, need to add 1 for display
+      const currentStepDisplay = levelProgress.progress_step + 1;
+
+      // Calculate percentage: (currentStep / totalSteps) * 100
+      learningProgress = Math.min(
+        100,
+        Math.round((currentStepDisplay / level.totalModules) * 100)
+      );
+
+      // ✅ FIX: Learning complete when reached last step
+      // progress_step = 25 (last index) → display = 26 → complete when 26 >= 26
+      isLearningComplete = currentStepDisplay >= level.totalModules;
+    }
 
     return {
       id: level.exploration_id,
       levelNumber: level.levels,
-      title: `Level ${level.levels}`, // Level number as title
-      description: level.title, // Original title as description
+      title: `Level ${level.levels}`,
+      description: level.title,
       imgUrl: level.thumbnail_url || '/images/placeholder-materi.png',
       status,
       learningProgress,
-      currentStep: level.levels === currentLevel ? currentStep : undefined,
+      currentStep: levelProgress ? levelProgress.progress_step + 1 : 0, // ✅ Display as 1-based
       totalSteps: level.totalModules,
       isLearningComplete,
+      testScore: levelScore?.score,
+      testPassed: levelScore?.passed,
+      attemptNumber: levelScore?.attempt_number,
     };
   });
 };
 
-/**
- * Fetches all exploration levels with user progress information
- * @param userId - The user ID to get progress for
- * @returns Promise<ExplorationLevelsResult> - Levels with user progress
- */
 export const getExplorationLevelsWithProgress = async (
   userId: string
 ): Promise<ExplorationLevelsResult> => {
   try {
-    // Fetch exploration levels and user progress in parallel
-    const [levels, userProgress] = await Promise.all([
-      getExplorationLevels(),
-      getUserProgress(userId),
-    ]);
+    const [levels, userProgressRaw, testScores, levelProgressList] =
+      await Promise.all([
+        getExplorationLevels(),
+        getUserProgress(userId),
+        getAllTestScores(userId),
+        getAllLevelProgress(userId), // ✨ Ambil progress dari table baru
+      ]);
 
-    // For each level, fetch the total number of learning modules
+    // ✅ FIX: Convert null to undefined for TypeScript
+    const userProgress = userProgressRaw ?? undefined;
+
     const levelsWithModuleCounts = await Promise.all(
       levels.map(async level => {
         try {
@@ -122,7 +170,6 @@ export const getExplorationLevelsWithProgress = async (
             totalModules: modules.length,
           };
         } catch {
-          // If we can't fetch modules, assume 0 modules
           return {
             ...level,
             totalModules: 0,
@@ -133,7 +180,9 @@ export const getExplorationLevelsWithProgress = async (
 
     const processedLevels = processLevelsWithProgress(
       levelsWithModuleCounts,
-      userProgress
+      userProgress,
+      testScores,
+      levelProgressList // ✨ Pass progress per level
     );
 
     return {
@@ -146,11 +195,6 @@ export const getExplorationLevelsWithProgress = async (
   }
 };
 
-/**
- * Fetches a single exploration level by ID
- * @param explorationId - The exploration ID to fetch
- * @returns Promise<ExplorationLevelWithAsset | undefined> - The exploration level or undefined if not found
- */
 export const getExplorationLevel = async (
   explorationId: string
 ): Promise<ExplorationLevelWithAsset | undefined> => {
@@ -162,11 +206,6 @@ export const getExplorationLevel = async (
   }
 };
 
-/**
- * Processes learning modules from database format to UI format
- * @param modules - Raw learning modules from database
- * @returns ProcessedLearningModule[] - Processed modules for UI display
- */
 const processLearningModules = (
   modules: LearningModuleWithAsset[]
 ): ProcessedLearningModule[] => {
@@ -175,15 +214,10 @@ const processLearningModules = (
     title: module.title,
     description: module.description || '',
     imageUrl: module.image_url || '/images/materi/placeholder.png',
-    exampleSentence: module.description, // Using description as example sentence for now
+    exampleSentence: module.description,
   }));
 };
 
-/**
- * Fetches learning modules for a specific exploration level
- * @param explorationId - The exploration ID to fetch modules for
- * @returns Promise<ProcessedLearningModule[]> - Processed learning modules
- */
 export const getLearningModulesForExploration = async (
   explorationId: string
 ): Promise<ProcessedLearningModule[]> => {
@@ -196,11 +230,6 @@ export const getLearningModulesForExploration = async (
   }
 };
 
-/**
- * Fetches a single learning module by ID
- * @param moduleId - The learning module ID to fetch
- * @returns Promise<ProcessedLearningModule | undefined> - The processed learning module or undefined if not found
- */
 export const getLearningModule = async (
   moduleId: string
 ): Promise<ProcessedLearningModule | undefined> => {
@@ -216,27 +245,21 @@ export const getLearningModule = async (
   }
 };
 
-/**
- * Updates user's exploration progress in the database
- * @param userId - The user ID
- * @param currentStep - The current step in the learning modules (0-based index)
- * @param totalSteps - Total number of steps in the current level
- * @returns Promise<UserProgress> - Updated user progress
- */
+// 📈 FIXED: Update progress LEVEL TERTENTU, tidak global
+// CRITICAL: currentStep is 0-based index (0-25 for 26 items)
 export const updateUserExplorationProgress = async (
   userId: string,
-  currentStep: number,
-  _totalSteps: number
-): Promise<UserProgress> => {
+  levelNumber: number, // ✨ Level number
+  currentStep: number // ✅ 0-based index from MateriPage
+): Promise<UserLevelProgress> => {
   try {
-    // Store the actual step number (1-based) instead of percentage
-    const stepNumber = currentStep + 1; // Convert 0-based to 1-based
-
-    // Update ONLY the exploration progress, NOT the exploration level
-    const updatedProgress = await updateUserProgress({
+    // ✅ Save progress as 0-based index
+    // Repository will handle the display conversion
+    const updatedProgress = await updateLevelProgress(
       userId,
-      explorationProgress: stepNumber,
-    });
+      levelNumber,
+      currentStep // ✅ Pass 0-based index directly
+    );
 
     return updatedProgress;
   } catch (error) {
@@ -245,64 +268,27 @@ export const updateUserExplorationProgress = async (
   }
 };
 
-/**
- * Gets user's current step in learning modules based on exploration progress
- * @param userId - The user ID
- * @param totalSteps - Total number of steps in the current level
- * @returns Promise<number> - Current step index (0-based)
- */
+// 🔧 FIXED: Get current step untuk LEVEL TERTENTU
+// Returns 0-based index for MateriPage
 export const getUserCurrentStep = async (
   userId: string,
+  levelNumber: number, // ✨ NEW: Tambah parameter level number
   totalSteps: number
 ): Promise<number> => {
   try {
-    const userProgress = await getUserProgress(userId);
-    if (!userProgress) return 0;
+    const progress = await getLevelProgress(userId, levelNumber);
 
-    // Get current step number directly from exploration_progress
-    const stepNumber = userProgress.exploration_progress;
-    const currentStep = stepNumber - 1; // Convert 1-based to 0-based
+    if (!progress) return 0; // Start from beginning
 
-    // Ensure step is within bounds
-    return Math.max(0, Math.min(currentStep, totalSteps - 1));
+    // ✅ progress_step is already 0-based, return as-is
+    // Ensure it doesn't exceed array bounds
+    return Math.max(0, Math.min(progress.progress_step, totalSteps - 1));
   } catch (error) {
-    console.error('Error getting user current step:', error);
-    return 0; // Default to first step on error
+    console.error('Error getting current step:', error);
+    return 0;
   }
 };
 
-/**
- * Completes the current exploration level and moves to the next level
- * @param userId - The user ID
- * @param currentLevel - The level that was just completed
- * @returns Promise<UserProgress> - Updated user progress
- */
-export const completeExplorationLevel = async (
-  userId: string,
-  currentLevel: number
-): Promise<UserProgress> => {
-  try {
-    // Move to next level and reset progress
-    const nextLevel = currentLevel + 1;
-    const updatedProgress = await updateUserProgress({
-      userId,
-      explorationLevel: nextLevel,
-      explorationProgress: 0, // Reset progress for new level
-    });
-
-    return updatedProgress;
-  } catch (error) {
-    console.error('Error completing exploration level:', error);
-    throw new Error('Failed to complete exploration level');
-  }
-};
-
-/**
- * Processes assessment modules from database format to UI format
- * @param modules - Raw assessment modules with options from database
- * @param levelId - The level ID for the questions
- * @returns Question[] - Processed questions for UI display
- */
 const processAssessmentModules = (
   modules: (AssessmentModuleWithAsset & {
     options: AssessmentOptionWithAsset[];
@@ -320,7 +306,6 @@ const processAssessmentModules = (
     };
 
     if (module.question_type === 'fill in the blank') {
-      // For fill-in-the-blank questions, find the correct answer from options
       const correctOption = module.options.find(option => option.is_correct);
       const fillInTheBlankQuestion: FillInTheBlankQuestion = {
         ...baseQuestion,
@@ -329,7 +314,6 @@ const processAssessmentModules = (
       };
       return fillInTheBlankQuestion;
     } else {
-      // For multiple choice questions, process options and find correct answer
       const processedOptions: QuestionOption[] = module.options.map(option => ({
         id: option.option_id,
         asset: option.image_url || '/images/placeholder-option.png',
@@ -348,12 +332,6 @@ const processAssessmentModules = (
   });
 };
 
-/**
- * Fetches assessment questions for a specific exploration level
- * @param explorationId - The exploration ID to fetch assessments for
- * @param levelId - The level ID for the questions
- * @returns Promise<Question[]> - Processed assessment questions
- */
 export const getAssessmentQuestionsForExploration = async (
   explorationId: string,
   levelId: number

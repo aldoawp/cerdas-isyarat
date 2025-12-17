@@ -21,7 +21,7 @@ export const ResultsModal = ({
   onBackToExplore: () => void;
   lives: number;
 }) => {
-  const isPassed = score >= 75;
+  const isPassed = score >= 70;
   const canRetry = lives > 0;
   const [displayScore, setDisplayScore] = useState(0);
 
