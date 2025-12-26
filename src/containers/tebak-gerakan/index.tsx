@@ -23,7 +23,7 @@ import {
   useAuth,
 } from '@/lib/contexts/auth-context'; // Import useAuth
 import LoadingScreen from '@/components/shared/loading-screen';
-import { aslAlphabetMovements } from '@/dummy/tebak-gerakan-data';
+import { getAllMovements } from '@/repositories/guessing-challenge-repository';
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { drawConnectors, drawLandmarks } from '@/lib/utils/drawing-utils';
 import { saveGameScore } from '@/services/tebak-gerakan-service'; // Pastikan path ini benar
@@ -354,7 +354,19 @@ export default function TebakGerakanPage() {
   }, [isProcessing, currentMovement, sendPredictionRequest]);
 
   useEffect(() => {
-    setShuffledMovements(shuffleArray(aslAlphabetMovements));
+    const initializeGame = async () => {
+      try {
+        // Fetch movements from database
+        const movements = await getAllMovements();
+        setShuffledMovements(shuffleArray(movements));
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load movements:', error);
+        // Optionally show error modal or redirect
+      }
+    };
+
+    initializeGame();
     startCamera();
 
     // Log tebak gerakan start event
