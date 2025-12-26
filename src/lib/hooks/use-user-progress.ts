@@ -5,8 +5,6 @@ import { useAuth } from '@/lib/contexts/auth-context';
 import {
   getUserProgressData,
   refillUserLives,
-  completeLevel,
-  updateUserStep,
   decreaseUserLivesWithProgressReset,
   type UserProgressData,
 } from '@/services/users-progress-service';
@@ -17,10 +15,8 @@ export interface UserProfileData {
   lives?: number;
 }
 
-// Local storage keys
 const USER_KEY = 'loggedInUser';
 
-// Avatar options
 export const avatars = [
   'https://i.pinimg.com/originals/ed/f7/96/edf7963313c62ae35796eed89df14852.jpg',
   'https://st5.depositphotos.com/72771704/75678/v/450/depositphotos_756786120-stock-illustration-hamster-vector-illustration-cartoon-clipart.jpg',
@@ -29,7 +25,6 @@ export const avatars = [
   'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRBG5EunaflZSZEb88XZFumJtFUryDiT56wrw&s',
 ];
 
-// Local storage helpers
 export const getUserData = (): UserProfileData | undefined => {
   if (globalThis.window === undefined) return undefined;
   try {
@@ -47,22 +42,17 @@ export const updateUserData = (userData: Partial<UserProfileData>): void => {
     const updatedData = { ...currentData, ...userData };
     localStorage.setItem(USER_KEY, JSON.stringify(updatedData));
     globalThis.dispatchEvent(new Event('userStateChange'));
+    console.log('💾 Local user data updated:', userData);
   } catch {
     // Silent error handling
   }
 };
 
-/**
- * Custom hook for managing user progress and profile data
- * Integrates Supabase backend for progress tracking and localStorage for profile data
- *
- * @returns Object containing user progress data, profile data, loading state, and action functions
- */
 export const useUserProgress = () => {
   const { user } = useAuth();
   const [progressData, setProgressData] = useState<UserProgressData>({
     explorationLevel: 1,
-    explorationProgress: 0,
+    explorationProgress: 0, // ⚠️ DEPRECATED: Tidak dipakai lagi, diganti dengan user_exploration_level_progress table
     guessingChallengeScore: 0,
     xp: 0,
     lives: 3,
@@ -87,23 +77,31 @@ export const useUserProgress = () => {
     try {
       setError(undefined);
 
-      // Load user profile from localStorage
+      // 1. Load dari localStorage (untuk profile & avatar)
       const localUserData = getUserData();
       if (localUserData) {
         setUserProfile(localUserData);
       }
 
-      // Load progress from database
+      // 2. Load dari database (source of truth untuk level, xp, lives)
       const progress = await getUserProgressData(user.id);
       setProgressData(progress);
 
-      // Update user profile with lives from progress
+      // 3. ✅ SYNC: Update localStorage dengan lives dari database
       if (localUserData) {
-        const updatedProfile = { ...localUserData, lives: progress.lives };
+        const updatedProfile = {
+          ...localUserData,
+          lives: progress.lives, // Lives dari DB adalah source of truth
+        };
         setUserProfile(updatedProfile);
-        // Update localStorage without triggering userStateChange event
         localStorage.setItem(USER_KEY, JSON.stringify(updatedProfile));
       }
+
+      console.log('📊 User Progress Loaded:', {
+        level: progress.explorationLevel,
+        xp: progress.xp,
+        lives: progress.lives,
+      });
     } catch (error_) {
       setError(
         error_ instanceof Error ? error_.message : 'Failed to load user data'
@@ -115,34 +113,39 @@ export const useUserProgress = () => {
     }
   }, [user?.id]);
 
-  // Store the function in ref to avoid dependency issues
   loadUserDataRef.current = loadUserData;
 
+  // 💔 Decrease life (saat gagal tes / quit / timeout)
   const decreaseLife = useCallback(
     async (_reason: 'quit' | 'low_score' | 'time_up' = 'quit') => {
       if (!user?.id) return;
 
       try {
+        console.log(`💔 Decreasing life (reason: ${_reason})`);
+
         const { updatedProgress, shouldResetProgress } =
           await decreaseUserLivesWithProgressReset(user.id);
 
-        // Update local state
+        // Update state dengan lives baru dari database
         const newProgressData = {
           ...progressData,
           lives: updatedProgress.user_lives,
+          // ⚠️ explorationProgress deprecated, tapi tetap update untuk backward compatibility
           explorationProgress: shouldResetProgress
             ? 0
             : progressData.explorationProgress,
         };
         setProgressData(newProgressData);
 
-        // Update user profile with new lives
+        // Sync localStorage
         const updatedProfile = {
           ...userProfile,
           lives: updatedProgress.user_lives,
         };
         setUserProfile(updatedProfile);
         localStorage.setItem(USER_KEY, JSON.stringify(updatedProfile));
+
+        console.log(`❤️ Lives remaining: ${updatedProgress.user_lives}`);
       } catch (error_) {
         console.error('Error decreasing life:', error_);
       }
@@ -150,46 +153,42 @@ export const useUserProgress = () => {
     [user?.id, progressData, userProfile]
   );
 
+  // 💖 Refill lives (saat selesai belajar materi)
   const refillLives = useCallback(async () => {
     if (!user?.id) return;
 
     try {
+      console.log('💖 Refilling lives to 3...');
+
       await refillUserLives(user.id);
+
+      // ✅ Update local state only
       updateUserData({ lives: 3 });
       setUserProfile(prev => ({ ...prev, lives: 3 }));
-      await loadUserData(); // Refresh progress data
+      setProgressData(prev => ({ ...prev, lives: 3 }));
+
+      // ❌ REMOVED: Don't reload immediately - causes race condition
+      // await loadUserData();
+
+      console.log('✅ Lives refilled successfully!');
     } catch (error_) {
       console.error('Error refilling lives:', error_);
     }
-  }, [user?.id, loadUserData]);
+  }, [user?.id]);
 
-  const completeLevelAction = useCallback(
-    async (levelId: number) => {
-      if (!user?.id) return;
+  // ⚠️ DEPRECATED: Level completion sekarang handled by test scores
+  const completeLevelAction = useCallback(async (_levelId: number) => {
+    console.warn(
+      '⚠️ completeLevelAction is deprecated. Level completion is handled by test scores.'
+    );
+  }, []);
 
-      try {
-        await completeLevel(user.id, levelId);
-        await loadUserData(); // Refresh progress data
-      } catch (error_) {
-        console.error('Error completing level:', error_);
-      }
-    },
-    [user?.id, loadUserData]
-  );
-
-  const updateStep = useCallback(
-    async (level: number, step: number) => {
-      if (!user?.id) return;
-
-      try {
-        await updateUserStep(user.id, level, step);
-        await loadUserData(); // Refresh progress data
-      } catch (error_) {
-        console.error('Error updating step:', error_);
-      }
-    },
-    [user?.id, loadUserData]
-  );
+  // ⚠️ DEPRECATED: Step update sekarang handled by user_exploration_level_progress table
+  const updateStep = useCallback(async (level: number, step: number) => {
+    console.warn(
+      `⚠️ updateStep(${level}, ${step}) is deprecated. Use updateLevelProgress() from user-level-progress-repository instead.`
+    );
+  }, []);
 
   const updateAvatar = useCallback((newAvatar: string) => {
     updateUserData({ avatar: newAvatar });
@@ -201,14 +200,14 @@ export const useUserProgress = () => {
     setUserProfile(prev => ({ ...prev, fullName: newFullName }));
   }, []);
 
-  // Load data on mount and when user changes
+  // Load data saat component mount
   useEffect(() => {
     if (user?.id && loadUserDataRef.current) {
       loadUserDataRef.current();
     }
   }, [user?.id]);
 
-  // Listen for window focus to refresh data
+  // Reload saat window focus (user kembali ke tab)
   useEffect(() => {
     const handleFocus = () => {
       if (user?.id && loadUserDataRef.current) {
@@ -224,16 +223,16 @@ export const useUserProgress = () => {
   }, [user?.id]);
 
   return {
-    progressData,
-    userProfile,
+    progressData, // Contains: explorationLevel, xp, lives
+    userProfile, // Contains: fullName, avatar, lives
     loading,
     error,
-    decreaseLife,
-    refillLives,
-    completeLevelAction,
-    updateStep,
-    updateAvatar,
-    updateFullName,
-    _refreshData: loadUserData,
+    decreaseLife, // ✅ Active: Kurangi nyawa
+    refillLives, // ✅ Active: Isi ulang nyawa
+    completeLevelAction, // ⚠️ Deprecated
+    updateStep, // ⚠️ Deprecated
+    updateAvatar, // ✅ Active
+    updateFullName, // ✅ Active
+    _refreshData: loadUserData, // ✅ Active: Manual refresh
   };
 };

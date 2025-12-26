@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import React from 'react';
 import '@/styles/globals.css';
-import { MusicProvider } from '@/components/shared/musicplayer/music-context'; // Sesuaikan path
+import { MusicProvider } from '@/components/shared/musicplayer/music-context';
 import MusicPlayer from '@/components/shared/musicplayer/musicplayer';
 import { AuthProvider } from '@/lib/contexts/auth-context';
+import { GlobalBackgroundProvider } from '@/components/providers/global-background-provider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -27,19 +28,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="id">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
-          <MusicProvider>
-            {/* Music Player akan muncul di semua halaman */}
-            <MusicPlayer />
-
-            {/* Konten halaman */}
-            {children}
-          </MusicProvider>
-        </AuthProvider>
+        <GlobalBackgroundProvider>
+          <AuthProvider>
+            <MusicProvider>
+              <MusicPlayer />
+              {children}
+            </MusicProvider>
+          </AuthProvider>
+        </GlobalBackgroundProvider>
       </body>
     </html>
   );

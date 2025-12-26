@@ -96,8 +96,7 @@ export default function LoginPage() {
   }
 
   return (
-    // Menambahkan font-sans (Baloo 2) sebagai font default untuk seluruh halaman
-    <div className="relative grid min-h-screen place-items-center overflow-hidden bg-mobile-bg bg-cover bg-center p-4 font-sans md:bg-desktop-bg">
+    <div className="page-container relative grid min-h-screen place-items-center overflow-hidden p-4 font-sans">
       <main className="z-10 w-full max-w-md">
         <div className="mb-12 text-center">
           {/* Menggunakan utility class text-stroke yang baru dibuat */}

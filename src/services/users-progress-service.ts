@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/client';
 import {
   getUserProgress,
   createUserProgress,
@@ -9,11 +8,11 @@ import {
   resetUserExplorationProgress,
   type UserProgress,
 } from '@/repositories/users-progress-repository';
-import { getLearningModulesByExplorationId } from '@/repositories/ekplorasi-repository';
+import { resetLevelProgress } from '@/repositories/user-level-progress-repository';
 
 export interface UserProgressData {
   explorationLevel: number;
-  explorationProgress: number;
+  explorationProgress: number; // ⚠️ DEPRECATED: Gunakan user_exploration_level_progress table
   guessingChallengeScore: number;
   xp: number;
   lives: number;
@@ -25,87 +24,46 @@ export interface UserProfileData {
   lives?: number;
 }
 
-// --- MAIN LOGIC FIX ---
-
-// Helper function to calculate percentage
-export const calculateUserProgress = (
-  dbProgress: UserProgress | undefined,
-  totalSteps: number
-): UserProgressData => {
-  if (!dbProgress) {
-    return {
-      explorationLevel: 1,
-      explorationProgress: 0,
-      guessingChallengeScore: 0,
-      xp: 0,
-      lives: 3,
-    };
-  }
-
-  // DYNAMIC FORMULA: (User Step / Real DB Total Steps) * 100
-  let calculatedXp = 0;
-  if (totalSteps > 0) {
-    calculatedXp = Math.round(
-      (dbProgress.exploration_progress / totalSteps) * 100
-    );
-  }
-
-  // Safety net to prevent overflow > 100%
-  if (calculatedXp > 100) calculatedXp = 100;
-  if (calculatedXp < 0) calculatedXp = 0;
-
-  return {
-    explorationLevel: dbProgress.exploration_level,
-    explorationProgress: dbProgress.exploration_progress,
-    guessingChallengeScore: dbProgress.guessing_challenge_score,
-    xp: calculatedXp,
-    lives: dbProgress.user_lives,
-  };
-};
-
-// [CRITICAL FIX] Fetch total steps dynamically using existing repository function
+/**
+ * ✅ SIMPLIFIED: Get user progress data from database
+ * XP sekarang disimpan langsung di database, tidak perlu calculate
+ */
 export const getUserProgressData = async (
   userId: string
 ): Promise<UserProgressData> => {
   const dbProgress = await getUserProgress(userId);
 
-  // Default to 0 to prevent division issues
-  let currentLevelTotalSteps = 0;
+  if (!dbProgress) {
+    // Create default progress if not exists
+    const newProgress = await createUserProgress({
+      userId,
+      explorationLevel: 1,
+      explorationProgress: 0,
+      guessingChallengeScore: 0,
+      xp: 0,
+    });
 
-  if (dbProgress) {
-    try {
-      const supabase = createClient();
-
-      // Get the exploration_id for the user's current level
-      const { data: explorationData } = await supabase
-        .from('exploration')
-        .select('exploration_id')
-        .eq('levels', dbProgress.exploration_level)
-        .single();
-
-      if (explorationData?.exploration_id) {
-        // Use the existing repository function to get learning modules
-        const modules = await getLearningModulesByExplorationId(
-          explorationData.exploration_id
-        );
-        currentLevelTotalSteps = modules.length;
-      }
-    } catch (error) {
-      console.error('Failed to fetch dynamic total steps:', error);
-      // If we can't fetch, default to the current progress to avoid breaking
-      currentLevelTotalSteps = dbProgress.exploration_progress || 1;
-    }
+    return {
+      explorationLevel: newProgress.exploration_level,
+      explorationProgress: newProgress.exploration_progress,
+      guessingChallengeScore: newProgress.guessing_challenge_score,
+      xp: newProgress.xp,
+      lives: newProgress.user_lives,
+    };
   }
 
-  // Ensure we have a valid totalSteps to prevent division by zero
-  if (currentLevelTotalSteps === 0) {
-    currentLevelTotalSteps = dbProgress?.exploration_progress || 1;
-  }
-
-  // Pass the real totalSteps to the calculation
-  return calculateUserProgress(dbProgress, currentLevelTotalSteps);
+  return {
+    explorationLevel: dbProgress.exploration_level,
+    explorationProgress: dbProgress.exploration_progress,
+    guessingChallengeScore: dbProgress.guessing_challenge_score,
+    xp: dbProgress.xp || 0, // ✅ XP dari database
+    lives: dbProgress.user_lives,
+  };
 };
 
+/**
+ * Initialize user progress (for new users)
+ */
 export const initializeUserProgress = async (
   userId: string
 ): Promise<UserProgress> => {
@@ -114,25 +72,18 @@ export const initializeUserProgress = async (
     explorationLevel: 1,
     explorationProgress: 0,
     guessingChallengeScore: 0,
+    xp: 0,
   });
 };
 
+/**
+ * ⚠️ DEPRECATED: Use updateUserProgress() with specific fields
+ */
 export const updateUserExplorationProgress = async (
   userId: string,
   newLevel: number,
   newStep: number
 ): Promise<UserProgress> => {
-  const currentProgress = await getUserProgress(userId);
-
-  if (!currentProgress) {
-    return createUserProgress({
-      userId,
-      explorationLevel: newLevel,
-      explorationProgress: newStep,
-      guessingChallengeScore: 0,
-    });
-  }
-
   return updateUserProgress({
     userId,
     explorationLevel: newLevel,
@@ -140,6 +91,9 @@ export const updateUserExplorationProgress = async (
   });
 };
 
+/**
+ * Update guessing challenge score
+ */
 export const updateUserGuessingChallengeScore = async (
   userId: string,
   score: number
@@ -150,40 +104,85 @@ export const updateUserGuessingChallengeScore = async (
   });
 };
 
+/**
+ * Refill user lives to 3
+ */
 export const refillUserLives = async (
   userId: string
 ): Promise<UserProgress> => {
+  console.log('💖 Refilling lives to 3...');
   return regenerateUserLives(userId);
 };
 
+/**
+ * ✅ Complete level: Unlock next level + refill lives + reset XP
+ */
 export const completeLevel = async (
   userId: string,
-  levelId: number
+  currentLevelId: number
 ): Promise<UserProgress> => {
-  const nextLevel = levelId + 1;
+  const nextLevel = currentLevelId + 1;
+
+  console.log(
+    `✅ Completing Level ${currentLevelId}, unlocking Level ${nextLevel}`
+  );
+
   return updateUserProgress({
     userId,
     explorationLevel: nextLevel,
     explorationProgress: 0,
     userLives: 3,
+    xp: 0, // ✅ Reset XP untuk level baru
   });
 };
 
+/**
+ * ⚠️ DEPRECATED: Use updateLevelProgress() from user-level-progress-repository
+ */
 export const updateUserStep = async (
   userId: string,
   level: number,
   step: number
 ): Promise<UserProgress> => {
+  console.warn(
+    `⚠️ updateUserStep(${level}, ${step}) is deprecated. Use updateLevelProgress() from user-level-progress-repository instead.`
+  );
   return updateUserExplorationProgress(userId, level, step);
 };
 
+/**
+ * ✅ FIXED: Decrease user lives with progress reset if lives = 0
+ * - Reset XP to 0
+ * - Reset current level progress to 0
+ * - Keep exploration_level (don't demote)
+ * - Trigger UI reload via custom event
+ */
 export const decreaseUserLivesWithProgressReset = async (
   userId: string
 ): Promise<{ updatedProgress: UserProgress; shouldResetProgress: boolean }> => {
+  console.log('💔 Decreasing user lives...');
+
   const updatedProgress = await decreaseUserLives(userId);
 
   if (updatedProgress.user_lives === 0) {
+    console.log('⚠️ Lives = 0, resetting XP and current level progress...');
+
+    // 1. Reset XP ke 0
     const resetProgress = await resetUserExplorationProgress(userId);
+
+    // 2. Reset progress level yang sedang aktif ke 0
+    const currentLevel = resetProgress.exploration_level;
+    await resetLevelProgress(userId, currentLevel);
+
+    console.log(
+      `🔄 Reset complete: XP = 0, Level ${currentLevel} progress = 0`
+    );
+
+    // 3. ✅ Trigger UI reload
+    if (globalThis.window !== undefined) {
+      globalThis.dispatchEvent(new CustomEvent('userStateChange'));
+    }
+
     return { updatedProgress: resetProgress, shouldResetProgress: true };
   }
 

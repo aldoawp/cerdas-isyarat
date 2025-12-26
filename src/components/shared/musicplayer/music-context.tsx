@@ -7,9 +7,12 @@ import React, {
   useState,
   useEffect,
 } from 'react';
+import {
+  getAllBackgroundMusic,
+  type BackgroundMusicWithAsset,
+} from '@/services/music-service';
 
 // --- GLOBAL STATE MANAGEMENT ---
-// Deklarasi ini memberitahu TypeScript tentang properti yang kita tambahkan ke object global.
 declare global {
   interface Window {
     audioInstance_cerdasisyarat?: HTMLAudioElement;
@@ -19,24 +22,49 @@ declare global {
       isMuted: boolean;
       currentTime: number;
       hasUserInteracted: boolean;
+      currentMusicId?: string;
+      musicUrl?: string;
     };
   }
 }
 
 // Fungsi untuk mendapatkan atau membuat SATU instansi audio global
-const getAudioInstance = (): HTMLAudioElement | undefined => {
-  // FIX: Menggunakan perbandingan langsung dengan undefined
+const getAudioInstance = (musicUrl?: string): HTMLAudioElement | undefined => {
   if (globalThis === undefined || globalThis.window === undefined)
     return undefined;
 
+  // Jika ada URL musik baru dan berbeda dari yang sekarang, update source
+  if (musicUrl && globalThis.window.audioInstance_cerdasisyarat) {
+    const audio = globalThis.window.audioInstance_cerdasisyarat;
+    if (audio.src !== musicUrl) {
+      const wasPlaying = !audio.paused;
+      const currentVolume = audio.volume;
+      const currentMuted = audio.muted;
+
+      audio.src = musicUrl;
+      audio.volume = currentVolume;
+      audio.muted = currentMuted;
+
+      if (
+        wasPlaying &&
+        globalThis.window.musicState_cerdasisyarat?.hasUserInteracted
+      ) {
+        // eslint-disable-next-line no-console
+        audio.play().catch(console.error);
+      }
+
+      updateGlobalState({ musicUrl });
+    }
+    return audio;
+  }
+
   if (!globalThis.window.audioInstance_cerdasisyarat) {
-    const audio = new Audio('/music/music1.mp3');
+    const audio = new Audio(musicUrl || '/music/music1.mp3');
     audio.loop = true;
     audio.preload = 'auto';
-    audio.volume = 0.3; // Set volume awal
+    audio.volume = 0.3;
     globalThis.window.audioInstance_cerdasisyarat = audio;
 
-    // Inisialisasi state global
     if (!globalThis.window.musicState_cerdasisyarat) {
       globalThis.window.musicState_cerdasisyarat = {
         isPlaying: false,
@@ -44,15 +72,15 @@ const getAudioInstance = (): HTMLAudioElement | undefined => {
         isMuted: false,
         currentTime: 0,
         hasUserInteracted: false,
+        currentMusicId: undefined,
+        musicUrl: musicUrl || '/music/music1.mp3',
       };
     }
   }
   return globalThis.window.audioInstance_cerdasisyarat;
 };
 
-// Helper untuk mendapatkan state global
 const getGlobalState = () => {
-  // FIX: Menggunakan perbandingan langsung dengan undefined
   if (
     globalThis === undefined ||
     globalThis.window === undefined ||
@@ -64,18 +92,18 @@ const getGlobalState = () => {
       isMuted: false,
       currentTime: 0,
       hasUserInteracted: false,
+      currentMusicId: undefined,
+      musicUrl: undefined,
     };
   }
   return globalThis.window.musicState_cerdasisyarat;
 };
 
-// Helper untuk update state global
 const updateGlobalState = (
   updates: Partial<
     NonNullable<typeof globalThis.window.musicState_cerdasisyarat>
   >
 ) => {
-  // FIX: Menggunakan perbandingan langsung dengan undefined
   if (
     globalThis !== undefined &&
     globalThis.window !== undefined &&
@@ -88,7 +116,6 @@ const updateGlobalState = (
   }
 };
 
-// Types
 interface MusicContextType {
   audioRef: React.RefObject<HTMLAudioElement | undefined>;
   isPlaying: boolean;
@@ -97,10 +124,15 @@ interface MusicContextType {
   controlsVisible: boolean;
   hasUserInteracted: boolean;
   isClient: boolean;
+  isLoading: boolean;
+  musicList: BackgroundMusicWithAsset[];
+  currentMusic: BackgroundMusicWithAsset | undefined;
   togglePlayPause: () => Promise<void>;
   changeVolume: (newVolume: number) => void;
   toggleMute: () => void;
   showControlsWithDelay: () => void;
+  changeMusic: (musicId: string) => Promise<void>;
+  nextMusic: () => Promise<void>;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -109,6 +141,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [musicList, setMusicList] = useState<BackgroundMusicWithAsset[]>([]);
+  const [currentMusic, setCurrentMusic] = useState<
+    BackgroundMusicWithAsset | undefined
+  >(undefined);
+
   const audioRef = useRef<HTMLAudioElement | undefined>(undefined);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined
@@ -123,22 +161,58 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(false);
 
+  // Load music list dari Supabase
   useEffect(() => {
-    setIsClient(true);
-    const globalState = getGlobalState();
-    const audioInstance = getAudioInstance();
-    if (audioInstance) {
-      audioRef.current = audioInstance;
-      setIsPlaying(globalState.isPlaying);
-      setVolume(globalState.volume);
-      setIsMuted(globalState.isMuted);
-      setHasUserInteracted(globalState.hasUserInteracted);
-      audioInstance.volume = globalState.volume;
-      audioInstance.muted = globalState.isMuted;
-      if (globalState.currentTime > 0) {
-        audioInstance.currentTime = globalState.currentTime;
+    const loadMusicFromSupabase = async () => {
+      try {
+        const allMusic = await getAllBackgroundMusic();
+        setMusicList(allMusic);
+
+        // Cari musik yang active atau ambil yang pertama
+        const activeMusic = allMusic.find(m => m.is_active) || allMusic[0];
+        const musicUrl = activeMusic?.audio_url || '/music/music1.mp3';
+
+        setCurrentMusic(activeMusic);
+        setIsClient(true);
+
+        const globalState = getGlobalState();
+        const audioInstance = getAudioInstance(musicUrl);
+
+        if (audioInstance) {
+          audioRef.current = audioInstance;
+          setIsPlaying(globalState.isPlaying);
+          setVolume(globalState.volume);
+          setIsMuted(globalState.isMuted);
+          setHasUserInteracted(globalState.hasUserInteracted);
+          audioInstance.volume = globalState.volume;
+          audioInstance.muted = globalState.isMuted;
+
+          if (globalState.currentTime > 0) {
+            audioInstance.currentTime = globalState.currentTime;
+          }
+
+          updateGlobalState({ currentMusicId: activeMusic?.music_id });
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load music from Supabase:', error);
+        // Fallback ke music local
+        setIsClient(true);
+        const globalState = getGlobalState();
+        const audioInstance = getAudioInstance('/music/music1.mp3');
+        if (audioInstance) {
+          audioRef.current = audioInstance;
+          setIsPlaying(globalState.isPlaying);
+          setVolume(globalState.volume);
+          setIsMuted(globalState.isMuted);
+          setHasUserInteracted(globalState.hasUserInteracted);
+        }
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+
+    loadMusicFromSupabase();
   }, []);
 
   useEffect(() => {
@@ -200,25 +274,6 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [isClient, hasUserInteracted]);
 
-  useEffect(() => {
-    if (!isClient || hasUserInteracted) return;
-    const handleFirstInteraction = () => {
-      setHasUserInteracted(true);
-      updateGlobalState({ hasUserInteracted: true });
-      document.removeEventListener('click', handleFirstInteraction);
-      document.removeEventListener('keydown', handleFirstInteraction);
-      document.removeEventListener('touchstart', handleFirstInteraction);
-    };
-    document.addEventListener('click', handleFirstInteraction);
-    document.addEventListener('keydown', handleFirstInteraction);
-    document.addEventListener('touchstart', handleFirstInteraction);
-    return () => {
-      document.removeEventListener('click', handleFirstInteraction);
-      document.removeEventListener('keydown', handleFirstInteraction);
-      document.removeEventListener('touchstart', handleFirstInteraction);
-    };
-  }, [isClient, hasUserInteracted]);
-
   const showControlsWithDelay = () => {
     setControlsVisible(true);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -251,7 +306,6 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
       }
     } catch {
-      // FIX: Menghapus variabel 'error' yang tidak digunakan
       setIsPlaying(false);
       updateGlobalState({ isPlaying: false });
     }
@@ -274,6 +328,49 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
     audio.muted = !audio.muted;
   };
 
+  const changeMusic = async (musicId: string): Promise<void> => {
+    const selectedMusic = musicList.find(m => m.music_id === musicId);
+    if (!selectedMusic || !selectedMusic.audio_url) return;
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const wasPlaying = !audio.paused;
+
+    // Update music
+    audio.src = selectedMusic.audio_url;
+    setCurrentMusic(selectedMusic);
+    updateGlobalState({
+      currentMusicId: musicId,
+      musicUrl: selectedMusic.audio_url,
+      currentTime: 0,
+    });
+
+    // Play jika sebelumnya playing dan user sudah interact
+    if (wasPlaying && hasUserInteracted) {
+      try {
+        await audio.play();
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to play new music:', error);
+      }
+    }
+
+    showControlsWithDelay();
+  };
+
+  const nextMusic = async (): Promise<void> => {
+    if (musicList.length === 0) return;
+
+    const currentIndex = musicList.findIndex(
+      m => m.music_id === currentMusic?.music_id
+    );
+    const nextIndex = (currentIndex + 1) % musicList.length;
+    const nextMusic = musicList[nextIndex];
+
+    await changeMusic(nextMusic.music_id);
+  };
+
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -289,10 +386,15 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
     controlsVisible,
     hasUserInteracted,
     isClient,
+    isLoading,
+    musicList,
+    currentMusic,
     togglePlayPause,
     changeVolume,
     toggleMute,
     showControlsWithDelay,
+    changeMusic,
+    nextMusic,
   };
 
   return (

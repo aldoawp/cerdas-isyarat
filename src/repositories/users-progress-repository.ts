@@ -1,3 +1,5 @@
+// @/repositories/users-progress-repository.ts
+
 import { createClient } from '@/lib/supabase/client';
 
 export interface UserProgress {
@@ -7,6 +9,7 @@ export interface UserProgress {
   exploration_progress: number;
   guessing_challenge_score: number;
   user_lives: number;
+  xp: number;
   created_at: string;
   updated_at: string;
 }
@@ -16,7 +19,7 @@ export interface CreateUserProgressParams {
   explorationLevel?: number;
   explorationProgress?: number;
   guessingChallengeScore?: number;
-  userLives?: number;
+  xp?: number;
 }
 
 export interface UpdateUserProgressParams {
@@ -25,33 +28,39 @@ export interface UpdateUserProgressParams {
   explorationProgress?: number;
   guessingChallengeScore?: number;
   userLives?: number;
+  xp?: number;
 }
 
+/**
+ * Get user progress from database
+ */
 export const getUserProgress = async (
   userId: string
-): Promise<UserProgress | undefined> => {
+): Promise<UserProgress | null> => {
   const supabase = createClient();
+
   const { data, error } = await supabase
     .from('users_progress')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    if (error.code === 'PGRST116') {
-      // No rows found
-      return undefined;
-    }
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching user progress:', error);
     throw error;
   }
 
   return data;
 };
 
+/**
+ * Create new user progress
+ */
 export const createUserProgress = async (
   params: CreateUserProgressParams
 ): Promise<UserProgress> => {
   const supabase = createClient();
+
   const { data, error } = await supabase
     .from('users_progress')
     .insert({
@@ -59,28 +68,36 @@ export const createUserProgress = async (
       exploration_level: params.explorationLevel ?? 1,
       exploration_progress: params.explorationProgress ?? 0,
       guessing_challenge_score: params.guessingChallengeScore ?? 0,
-      user_lives: params.userLives ?? 3,
+      user_lives: 3,
+      xp: params.xp ?? 0,
     })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error creating user progress:', error);
+    throw error;
+  }
+
   return data;
 };
 
+/**
+ * Update user progress
+ * ✅ CRITICAL: Ensure XP is updated properly
+ */
 export const updateUserProgress = async (
   params: UpdateUserProgressParams
 ): Promise<UserProgress> => {
   const supabase = createClient();
 
-  const updateData: Partial<
-    Omit<UserProgress, 'progress_id' | 'user_id' | 'created_at'>
-  > = {
+  const updateData: any = {
     updated_at: new Date().toISOString(),
   };
 
   if (params.explorationLevel !== undefined) {
     updateData.exploration_level = params.explorationLevel;
+    console.log('🔄 Updating exploration_level to:', params.explorationLevel);
   }
   if (params.explorationProgress !== undefined) {
     updateData.exploration_progress = params.explorationProgress;
@@ -90,7 +107,14 @@ export const updateUserProgress = async (
   }
   if (params.userLives !== undefined) {
     updateData.user_lives = params.userLives;
+    console.log('🔄 Updating user_lives to:', params.userLives);
   }
+  if (params.xp !== undefined) {
+    updateData.xp = params.xp;
+    console.log('🔄 Updating XP to:', params.xp);
+  }
+
+  console.log('📤 Sending update to database:', updateData);
 
   const { data, error } = await supabase
     .from('users_progress')
@@ -99,67 +123,148 @@ export const updateUserProgress = async (
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('❌ Error updating user progress:', error);
+    throw error;
+  }
+
+  console.log('✅ Database response:', {
+    level: data.exploration_level,
+    xp: data.xp,
+    lives: data.user_lives,
+  });
+
   return data;
 };
 
+/**
+ * Upsert user progress (create if not exists, update if exists)
+ */
 export const upsertUserProgress = async (
-  params: CreateUserProgressParams
+  params: UpdateUserProgressParams
 ): Promise<UserProgress> => {
-  const existingProgress = await getUserProgress(params.userId);
+  const existing = await getUserProgress(params.userId);
 
-  return existingProgress
-    ? updateUserProgress(params)
-    : createUserProgress(params);
+  if (!existing) {
+    return createUserProgress({
+      userId: params.userId,
+      explorationLevel: params.explorationLevel,
+      explorationProgress: params.explorationProgress,
+      guessingChallengeScore: params.guessingChallengeScore,
+      xp: params.xp,
+    });
+  }
+
+  return updateUserProgress(params);
 };
 
 /**
- * Decreases user lives by 1 and returns updated progress
+ * Decrease user lives by 1
  */
 export const decreaseUserLives = async (
   userId: string
 ): Promise<UserProgress> => {
-  const currentProgress = await getUserProgress(userId);
+  const supabase = createClient();
 
-  if (!currentProgress) {
-    // Create new progress with 2 lives (3 - 1)
-    return createUserProgress({
-      userId,
-      explorationLevel: 1,
-      explorationProgress: 0,
-      guessingChallengeScore: 0,
-      userLives: 2,
-    });
+  const current = await getUserProgress(userId);
+  if (!current) {
+    throw new Error('User progress not found');
   }
 
-  const newLives = Math.max(0, currentProgress.user_lives - 1);
+  const newLives = Math.max(0, current.user_lives - 1);
 
-  return updateUserProgress({
-    userId,
-    userLives: newLives,
-  });
+  const { data, error } = await supabase
+    .from('users_progress')
+    .update({
+      user_lives: newLives,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error decreasing user lives:', error);
+    throw error;
+  }
+
+  console.log(`💔 Lives decreased: ${current.user_lives} → ${newLives}`);
+  return data;
 };
 
 /**
- * Resets user lives to 3 (full regeneration)
+ * Regenerate user lives to maximum (3)
+ * ✅ FIXED: Jangan override field lain
  */
 export const regenerateUserLives = async (
   userId: string
 ): Promise<UserProgress> => {
-  return updateUserProgress({
-    userId,
-    userLives: 3,
-  });
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from('users_progress')
+    .update({
+      user_lives: 3,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error regenerating user lives:', error);
+    throw error;
+  }
+
+  console.log('💖 Lives refilled to 3 (XP & level unchanged)');
+  return data;
 };
 
 /**
- * Resets user exploration progress to 0
+ * ✅ FIXED: Reset XP only, keep exploration_level
+ * Used when lives = 0
  */
 export const resetUserExplorationProgress = async (
   userId: string
 ): Promise<UserProgress> => {
-  return updateUserProgress({
-    userId,
-    explorationProgress: 0,
-  });
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from('users_progress')
+    .update({
+      exploration_progress: 0,
+      xp: 0, // ✅ Reset XP ke 0
+      updated_at: new Date().toISOString(),
+      // ❌ TIDAK reset exploration_level (user tetap di level yang sama)
+    })
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error resetting user exploration progress:', error);
+    throw error;
+  }
+
+  console.log('🔄 XP reset to 0 (level unchanged)');
+  return data;
+};
+
+/**
+ * Get all user progress records (for admin/debugging)
+ */
+export const getAllUserProgress = async (): Promise<UserProgress[]> => {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from('users_progress')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching all user progress:', error);
+    throw error;
+  }
+
+  return data || [];
 };

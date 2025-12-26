@@ -7,6 +7,9 @@ import {
 import { createUserProgressServer } from '@/repositories/users-progress-repository-server';
 import { UserRegistration } from '@/types';
 
+// Imports dari Code 2 (Untuk Logic Avatar & Direct Supabase)
+import { createClient } from '@/lib/supabase/client';
+
 export interface RegisterResult {
   userId: string;
   email: string;
@@ -18,6 +21,14 @@ export interface DuplicateCheckResult {
   usernameExists: boolean;
   existingEmail?: string;
   existingUsername?: string;
+}
+
+export interface UserAvatar {
+  avatar_id: string;
+  name: string;
+  image_url: string;
+  is_default: boolean;
+  display_order: number;
 }
 
 export const checkUserDuplicates = async (
@@ -50,7 +61,6 @@ export const registerUser = async (
   payload: UserRegistration
 ): Promise<RegisterResult> => {
   try {
-    // Create authentication user
     const auth = await createAuthUser({
       email: payload.email,
       password: payload.password,
@@ -60,7 +70,6 @@ export const registerUser = async (
       throw new Error('Failed to create auth user: missing user id');
     }
 
-    // Insert user profile into users table
     await insertUserProfile({
       userId,
       email: payload.email,
@@ -69,7 +78,6 @@ export const registerUser = async (
       age: payload.age,
     });
 
-    // Initialize user progress with default values
     const userProgress = await createUserProgressServer({
       userId,
       explorationLevel: 1,
@@ -77,7 +85,6 @@ export const registerUser = async (
       guessingChallengeScore: 0,
     });
 
-    // Verify that user progress was created successfully
     if (!userProgress) {
       throw new Error('Failed to initialize user progress');
     }
@@ -91,13 +98,115 @@ export const registerUser = async (
 
     return { userId, email: payload.email, username: payload.username };
   } catch (error) {
-    // Log the error for debugging
     console.error('Registration error:', error);
-
-    // Re-throw with a more user-friendly message if needed
     if (error instanceof Error) {
       throw error;
     }
     throw new Error('Registration failed. Please try again.');
   }
+};
+
+export const getAllAvatars = async (): Promise<UserAvatar[]> => {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from('avatars')
+    .select(
+      `
+      avatar_id,
+      name,
+      is_default,
+      display_order,
+      image_asset_id,
+      assets ( url )
+    `
+    )
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Failed to fetch avatars:', error);
+    return [];
+  }
+
+  return data.map((item: any) => ({
+    avatar_id: item.avatar_id,
+    name: item.name,
+    is_default: item.is_default,
+    display_order: item.display_order,
+    image_url: item.assets?.url || '',
+  }));
+};
+
+export const updateUserAvatar = async (
+  userId: string,
+  avatarId: string
+): Promise<void> => {
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from('users')
+    .update({ avatar_id: avatarId })
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to update user avatar: ${error.message}`);
+  }
+};
+
+export const getUserAvatar = async (
+  userId: string
+): Promise<UserAvatar | undefined> => {
+  const supabase = createClient();
+
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('avatar_id')
+    .eq('user_id', userId)
+    .single();
+
+  if (userError) return undefined;
+
+  let targetAvatarId = userData?.avatar_id;
+
+  if (!targetAvatarId) {
+    const { data: defaultAvatar } = await supabase
+      .from('avatars')
+      .select('avatar_id')
+      .eq('is_default', true)
+      .limit(1)
+      .single();
+
+    if (defaultAvatar) {
+      targetAvatarId = defaultAvatar.avatar_id;
+    } else {
+      return undefined;
+    }
+  }
+
+  // 3. Ambil detail avatar
+  const { data: avatarData, error: avatarError } = await supabase
+    .from('avatars')
+    .select(
+      `
+      avatar_id,
+      name,
+      is_default,
+      display_order,
+      assets ( url )
+    `
+    )
+    .eq('avatar_id', targetAvatarId)
+    .single();
+
+  if (avatarError || !avatarData) {
+    return undefined;
+  }
+
+  return {
+    avatar_id: avatarData.avatar_id,
+    name: avatarData.name,
+    is_default: avatarData.is_default,
+    display_order: avatarData.display_order,
+    image_url: (avatarData.assets as any)?.url || '',
+  };
 };

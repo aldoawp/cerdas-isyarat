@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { useMascot } from '@/lib/hooks/use-mascot';
 
 export const ResultsModal = ({
   score,
@@ -20,9 +21,16 @@ export const ResultsModal = ({
   onBackToExplore: () => void;
   lives: number;
 }) => {
-  const isPassed = score >= 75;
+  const isPassed = score >= 70;
   const canRetry = lives > 0;
   const [displayScore, setDisplayScore] = useState(0);
+
+  // Fetch mascot berdasarkan hasil (success/fail)
+  const { mascotUrl } = useMascot(
+    'results',
+    isPassed ? 'success' : 'fail',
+    isPassed ? '/images/success.png' : '/images/fail.png'
+  );
 
   useEffect(() => {
     if (score === 0) return;
@@ -46,20 +54,17 @@ export const ResultsModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="m-4 w-full max-w-lg animate-jump-in rounded-3xl bg-form-bg p-8 text-center shadow-2xl drop-shadow-comic">
         <div className="mb-6">
-          <Image
-            src={
-              isPassed
-                ? '/images/maskot-juara.png'
-                : '/images/maskot-coba-lagi.png'
-            }
-            alt="Hasil"
-            width={120}
-            height={120}
-            className="mx-auto"
-          />
+          {mascotUrl && (
+            <Image
+              src={mascotUrl}
+              alt="Hasil"
+              width={120}
+              height={120}
+              className="mx-auto"
+            />
+          )}
         </div>
 
-        {/* [DIPERBAIKI] text-brand-brown-stroke dihapus */}
         <h2 className="mb-4 text-4xl font-bold text-brand-yellow text-stroke-base">
           {isPassed ? '🎉 Luar Biasa!' : '💪 Jangan Menyerah!'}
         </h2>
@@ -74,7 +79,6 @@ export const ResultsModal = ({
           <div className="text-2xl font-bold text-brand-brown-stroke">
             Hasil Kamu
           </div>
-          {/* [DIPERBAIKI] text-brand-brown-stroke dihapus */}
           <div className="my-2 text-6xl font-bold text-brand-yellow text-stroke">
             {displayScore}
           </div>
@@ -88,7 +92,6 @@ export const ResultsModal = ({
             onClick={onNextLevel}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-icon-green-bg py-4 text-2xl font-bold text-white shadow-lg drop-shadow-comic-sm transition-all hover:scale-105"
           >
-            {' '}
             <span className="text-3xl">🚀</span> <span>Level Berikutnya</span>
           </button>
         ) : (
@@ -99,7 +102,6 @@ export const ResultsModal = ({
                   onClick={onBackToExplore}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 text-xl font-bold text-brand-brown-stroke shadow-lg drop-shadow-comic-sm transition-all hover:scale-105"
                 >
-                  {' '}
                   <span className="text-2xl">📚</span>{' '}
                   <span>Kembali Belajar</span>
                 </button>
@@ -107,7 +109,6 @@ export const ResultsModal = ({
                   onClick={onRetry}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-yellow py-4 text-xl font-bold text-brand-brown-stroke shadow-lg drop-shadow-comic-sm transition-all hover:scale-105"
                 >
-                  {' '}
                   <span className="text-2xl">🔄</span> <span>Coba Lagi</span>
                 </button>
               </div>
@@ -117,7 +118,6 @@ export const ResultsModal = ({
                   onClick={onBackToExplore}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-icon-orange-bg py-4 text-2xl font-bold text-white shadow-lg drop-shadow-comic-sm transition-all hover:scale-105"
                 >
-                  {' '}
                   <span className="text-3xl">📚</span>{' '}
                   <span>Kembali Belajar</span>
                 </button>

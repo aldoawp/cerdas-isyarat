@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { useMascot } from '@/lib/hooks/use-mascot';
 
 const encouragements = [
   { text: 'Semangat!', emoji: '💪' },
@@ -14,6 +15,12 @@ const encouragements = [
 export const FloatingMascot = () => {
   const [currentEncouragement, setCurrentEncouragement] = useState(
     encouragements[0]
+  );
+
+  const { mascotUrl } = useMascot(
+    'floating',
+    'bottom-left',
+    '/images/semangat.png'
   );
 
   useEffect(() => {
@@ -41,15 +48,17 @@ export const FloatingMascot = () => {
           <div className="absolute -bottom-1 left-4 size-3 rotate-45 bg-white md:left-6"></div>
         </div>
 
-        {/* Mascot Image - Tanpa lingkaran kuning */}
+        {/* Mascot Image - Dynamic dari Supabase */}
         <div className="ml-2">
-          <Image
-            src="/images/semangat.png"
-            alt="Maskot"
-            width={100}
-            height={100}
-            className="size-20 rounded-full drop-shadow-lg md:size-24 lg:size-28"
-          />
+          {mascotUrl && (
+            <Image
+              src={mascotUrl}
+              alt="Maskot"
+              width={100}
+              height={100}
+              className="size-20 rounded-full drop-shadow-lg md:size-24 lg:size-28"
+            />
+          )}
         </div>
       </div>
     </div>

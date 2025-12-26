@@ -4,9 +4,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* === CSS Variables === */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Dynamic Background Variables - Will be set by GlobalBackgroundProvider from Supabase */
+  --bg-desktop: none;
+  --bg-mobile: none;
 }
 
 @media (prefers-color-scheme: light) {
@@ -22,29 +26,87 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* === Custom Scrollbar === */
 ::-webkit-scrollbar {
-  width: 12px; /* Lebar scrollbar */
-  height: 12px; /* Tinggi scrollbar (untuk scroll horizontal) */
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #fdf6d5; /* Warna 'form-bg' dari tema Anda */
-  border-radius: 10px; /* Membuat track melengkung */
-  border: 2px solid #f9e0a4; /* Warna 'input-border' untuk outline */
+  background: #fdf6d5;
+  border-radius: 10px;
+  border: 2px solid #f9e0a4;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #fed630; /* Warna 'brand-yellow' utama */
-  border-radius: 10px; /* Membuat thumb (pegangan) melengkung */
-  border: 3px solid #ce7310; /* Warna 'brand-brown-stroke' untuk efek komik */
+  background-color: #fed630;
+  border-radius: 10px;
+  border: 3px solid #ce7310;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #f9a825; /* Warna 'icon-orange-bg' saat di-hover */
+  background-color: #f9a825;
 }
 
-/* Untuk Firefox */
+/* Firefox Scrollbar */
 * {
-  scrollbar-width: thin; /* Opsi: 'auto', 'thin', 'none' */
-  scrollbar-color: #fed630 #fdf6d5; /* Warna thumb dan track */
+  scrollbar-width: thin;
+  scrollbar-color: #fed630 #fdf6d5;
+}
+
+/* === Dynamic Background Classes === */
+
+/* Desktop Background */
+.bg-desktop-bg {
+  background-image: var(--bg-desktop);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Mobile Background */
+.bg-mobile-bg {
+  background-image: var(--bg-mobile);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Responsive Background - Auto switch based on screen size */
+.bg-responsive {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+@media (min-width: 768px) {
+  .bg-responsive {
+    background-image: var(--bg-desktop);
+  }
+}
+
+@media (max-width: 767px) {
+  .bg-responsive {
+    background-image: var(--bg-mobile);
+  }
+}
+
+/* Page Container - Pre-styled container dengan background */
+.page-container {
+  min-height: 100vh;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    background-image: var(--bg-desktop);
+  }
+}
+
+@media (max-width: 767px) {
+  .page-container {
+    background-image: var(--bg-mobile);
+  }
 }

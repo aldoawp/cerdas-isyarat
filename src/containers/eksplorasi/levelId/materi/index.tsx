@@ -13,57 +13,15 @@ import {
 import LoadingScreen from '@/components/shared/loading-screen';
 import {
   getLearningModulesForExploration,
+  getExplorationLevel,
   ProcessedLearningModule,
   updateUserExplorationProgress,
   getUserCurrentStep,
 } from '@/services/ekplorasi-service';
+import { updateUserProgress } from '@/repositories/users-progress-repository';
+import { getUserProgressData } from '@/services/users-progress-service';
+import { markLevelAsCompleted } from '@/repositories/user-level-progress-repository';
 
-// --- TYPES ---
-interface LevelProgress {
-  progress: number;
-  lastIndex: number;
-}
-interface UserProgress {
-  completedLevelIds: number[];
-  learningProgress: { [levelId: number]: LevelProgress };
-}
-
-// --- LOCAL STORAGE FUNCTIONS ---
-const PROGRESS_KEY = 'userBisindoProgress';
-
-const getProgress = (): UserProgress => {
-  if (globalThis.window === undefined)
-    return { completedLevelIds: [], learningProgress: {} };
-  try {
-    const saved = localStorage.getItem(PROGRESS_KEY);
-    return saved
-      ? JSON.parse(saved)
-      : { completedLevelIds: [], learningProgress: {} };
-  } catch {
-    return { completedLevelIds: [], learningProgress: {} };
-  }
-};
-
-const saveProgress = (progress: UserProgress) => {
-  if (globalThis.window !== undefined)
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
-};
-
-const updateLearningProgress = (
-  levelId: number,
-  currentIndex: number,
-  totalItems: number
-) => {
-  const currentProgress = getProgress();
-  const newPercentage = Math.round(((currentIndex + 1) / totalItems) * 100);
-  currentProgress.learningProgress[levelId] = {
-    progress: newPercentage,
-    lastIndex: currentIndex,
-  };
-  saveProgress(currentProgress);
-};
-
-// --- MODAL COMPONENT ---
 const ConfirmationModal = ({
   isOpen,
   onConfirm,
@@ -102,7 +60,6 @@ const ConfirmationModal = ({
   );
 };
 
-// --- MAIN PAGE COMPONENT ---
 export default function MateriPage() {
   const router = useRouter();
   const params = useParams();
@@ -110,16 +67,21 @@ export default function MateriPage() {
   const { isPageLoading } = usePageLoading();
   const { user } = useAuth();
   const levelId = params.levelId as string;
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFinishing, setIsFinishing] = useState(false); // ✨ NEW: State untuk loader saat selesai
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [materials, setMaterials] = useState<ProcessedLearningModule[]>([]);
+  const [levelNumber, setLevelNumber] = useState<number>(1);
   const [error, setError] = useState<string | undefined>(undefined);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const { refillLives } = useUserProgress();
 
-  // Load materials with cache optimization
+  // ✅ Track user's current level
+  const [userCurrentLevel, setUserCurrentLevel] = useState<number>(1);
+
   const loadMaterials = useCallback(async () => {
     if (!levelId || !user?.id) {
       setIsLoading(false);
@@ -130,12 +92,24 @@ export default function MateriPage() {
       setIsLoading(true);
       setError(undefined);
 
-      // Fetch modules - akan menggunakan cache jika tersedia
+      // Load user's current level
+      const userProgress = await getUserProgressData(user.id);
+      setUserCurrentLevel(userProgress.explorationLevel);
+
+      const explorationLevel = await getExplorationLevel(levelId);
+      if (!explorationLevel) {
+        throw new Error('Level tidak ditemukan');
+      }
+      setLevelNumber(explorationLevel.levels);
+
       const modules = await getLearningModulesForExploration(levelId);
       setMaterials(modules);
 
-      // Get current step
-      const currentStep = await getUserCurrentStep(user.id, modules.length);
+      const currentStep = await getUserCurrentStep(
+        user.id,
+        explorationLevel.levels,
+        modules.length
+      );
       setCurrentIndex(currentStep);
     } catch (error_) {
       // eslint-disable-next-line no-console
@@ -152,12 +126,10 @@ export default function MateriPage() {
     loadMaterials();
   }, [loadMaterials]);
 
-  // Reset image loading state when index changes
   useEffect(() => {
     setImageLoading(true);
   }, [currentIndex]);
 
-  // Preload next image
   useEffect(() => {
     if (materials.length > 0 && currentIndex < materials.length - 1) {
       const nextImage = new globalThis.Image();
@@ -165,39 +137,80 @@ export default function MateriPage() {
     }
   }, [currentIndex, materials]);
 
-  // Update backend progress
+  const [highestXP, setHighestXP] = useState(0);
+
+  useEffect(() => {
+    const loadHighestXP = async () => {
+      if (!user?.id) return;
+
+      try {
+        const progress = await getUserProgressData(user.id);
+        setHighestXP(progress.xp || 0);
+      } catch (error_) {
+        // eslint-disable-next-line no-console
+        console.error('Error loading XP:', error_);
+      }
+    };
+
+    loadHighestXP();
+  }, [user?.id]);
+
+  // ✅ Only update XP if learning at current level
+  const updateXP = useCallback(async () => {
+    if (!user?.id || materials.length === 0) return;
+
+    // ✅ CRITICAL VALIDATION: Only update XP if levelNumber === userCurrentLevel
+    if (levelNumber !== userCurrentLevel) {
+      return;
+    }
+
+    try {
+      const xpValue = Math.min(
+        100,
+        Math.round(((currentIndex + 1) / materials.length) * 100)
+      );
+
+      if (xpValue <= highestXP) {
+        return;
+      }
+
+      await updateUserProgress({
+        userId: user.id,
+        xp: xpValue,
+      });
+
+      setHighestXP(xpValue);
+    } catch (error_) {
+      // eslint-disable-next-line no-console
+      console.error('Error updating XP:', error_);
+    }
+  }, [
+    user?.id,
+    currentIndex,
+    materials.length,
+    highestXP,
+    levelNumber,
+    userCurrentLevel,
+  ]);
+
   const updateBackendProgress = useCallback(async () => {
     if (!user?.id || materials.length === 0) return;
 
     try {
-      await updateUserExplorationProgress(
-        user.id,
-        currentIndex,
-        materials.length
-      );
+      await updateUserExplorationProgress(user.id, levelNumber, currentIndex);
+
+      await updateXP();
     } catch (error_) {
       // eslint-disable-next-line no-console
       console.error('Error updating backend progress:', error_);
     }
-  }, [user?.id, currentIndex, materials.length]);
+  }, [user?.id, levelNumber, currentIndex, materials.length, updateXP]);
 
-  // Update progress when index changes
   useEffect(() => {
     if (!isLoading && materials.length > 0) {
-      updateLearningProgress(
-        Number.parseInt(levelId),
-        currentIndex,
-        materials.length
-      );
       updateBackendProgress();
     }
-  }, [
-    currentIndex,
-    levelId,
-    materials.length,
-    isLoading,
-    updateBackendProgress,
-  ]);
+  }, [currentIndex, isLoading, updateBackendProgress, materials.length]);
 
   const handleBackClick = () => setIsModalOpen(true);
   const handleConfirmBack = () => router.push('/eksplorasi');
@@ -211,23 +224,41 @@ export default function MateriPage() {
   const isLastMateri = currentIndex === materials.length - 1;
 
   const handleNext = useCallback(async () => {
-    if (isTransitioning) return;
+    if (isTransitioning || isFinishing) return;
 
     if (isLastMateri) {
-      setIsTransitioning(true);
+      // ✨ Start finishing loader
+      setIsFinishing(true);
+
       if (user?.id) {
         try {
           await updateUserExplorationProgress(
             user.id,
-            materials.length - 1,
-            materials.length
+            levelNumber,
+            materials.length - 1
           );
+
+          await markLevelAsCompleted(user.id, levelNumber);
+
+          // ✅ Only set XP to 100 & refill lives if at current level
+          if (levelNumber === userCurrentLevel) {
+            await updateUserProgress({
+              userId: user.id,
+              xp: 100,
+            });
+
+            // Refill lives
+            refillLives();
+          }
         } catch (error_) {
           // eslint-disable-next-line no-console
           console.error('Error updating progress:', error_);
+          // Jika error, kita matikan loading agar user bisa coba lagi atau kita biarkan redirect
+          setIsFinishing(false);
+          return; // Stop here if error (optional, depending on UX choice)
         }
       }
-      refillLives();
+      // Redirect after success
       router.push('/eksplorasi');
     } else {
       setIsTransitioning(true);
@@ -237,23 +268,26 @@ export default function MateriPage() {
       });
     }
   }, [
-    isLastMateri,
-    router,
-    refillLives,
-    user?.id,
-    materials.length,
     isTransitioning,
+    isFinishing,
+    isLastMateri,
+    user?.id,
+    levelNumber,
+    materials.length,
+    userCurrentLevel,
+    refillLives,
+    router,
   ]);
 
   const handlePrev = useCallback(() => {
-    if (isTransitioning || currentIndex === 0) return;
+    if (isTransitioning || isFinishing || currentIndex === 0) return;
 
     setIsTransitioning(true);
     setCurrentIndex(prev => Math.max(0, prev - 1));
     requestAnimationFrame(() => {
       setTimeout(() => setIsTransitioning(false), 200);
     });
-  }, [currentIndex, isTransitioning]);
+  }, [currentIndex, isTransitioning, isFinishing]);
 
   const handleImageLoad = () => {
     setImageLoading(false);
@@ -265,6 +299,11 @@ export default function MateriPage() {
 
   if (isPageLoading || authLoading) {
     return <LoadingScreen message="Halaman sedang dimuat..." />;
+  }
+
+  // ✨ Tampilkan Loading Screen saat sedang menyimpan progress akhir
+  if (isFinishing) {
+    return <LoadingScreen message="Menyimpan progress..." />;
   }
 
   if (isLoading) {
@@ -327,7 +366,7 @@ export default function MateriPage() {
           lanjut lagi nanti.
         </p>
       </ConfirmationModal>
-      <div className="flex h-screen flex-col overflow-hidden bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+      <div className="page-container flex h-screen flex-col overflow-hidden font-sans">
         <header className="flex items-center justify-between p-4">
           <div className="w-1/4">
             <BackButton onClick={handleBackClick} />
@@ -357,7 +396,6 @@ export default function MateriPage() {
                 {currentMateri.title}
               </h1>
               <div className="relative my-4 flex h-52 w-full items-center justify-center rounded-2xl bg-input-bg shadow-inner md:h-64">
-                {/* Loading Indicator */}
                 {imageLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-input-bg/80">
                     <div className="flex flex-col items-center space-y-3">
@@ -368,7 +406,6 @@ export default function MateriPage() {
                     </div>
                   </div>
                 )}
-                {/* Image */}
                 <Image
                   src={currentMateri.imageUrl}
                   alt={`Isyarat untuk ${currentMateri.title}`}
@@ -406,14 +443,14 @@ export default function MateriPage() {
         <footer className="flex items-center justify-center gap-6 p-4">
           <button
             onClick={handlePrev}
-            disabled={currentIndex === 0 || isTransitioning}
+            disabled={currentIndex === 0 || isTransitioning || isFinishing}
             className="max-w-xs flex-1 rounded-2xl border-4 border-brand-brown-stroke bg-white py-3 text-2xl font-bold text-brand-brown-stroke shadow-lg drop-shadow-comic-sm transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Kembali
           </button>
           <button
             onClick={handleNext}
-            disabled={isTransitioning}
+            disabled={isTransitioning || isFinishing}
             className="max-w-xs flex-1 rounded-2xl bg-brand-yellow py-4 text-2xl font-bold text-brand-brown-stroke shadow-lg drop-shadow-comic-sm transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLastMateri ? 'Selesai!' : 'Lanjut'}

@@ -188,7 +188,7 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
   }
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+    <div className="page-container flex min-h-screen items-center justify-center font-sans">
       {/* Header - Fixed */}
       <header className="fixed inset-x-0 top-0 z-30 bg-gradient-to-b from-black/20 to-transparent p-4">
         <div className="flex items-center justify-between">

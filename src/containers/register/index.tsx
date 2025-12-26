@@ -16,6 +16,7 @@ import { UserRegistration } from '@/types';
 import { useProtectedRoute, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
 import { createClient } from '@/lib/supabase/client';
+import { useMascot } from '@/lib/hooks/use-mascot';
 
 type RegisterPageProps = {
   onRegister?: (form: UserRegistration) => Promise<unknown>;
@@ -24,7 +25,6 @@ type RegisterPageProps = {
 const checkUserDuplicates = async (email: string, username: string) => {
   const supabase = createClient();
 
-  // Check if email or username already exists
   const { data, error } = await supabase
     .from('users')
     .select('email, username')
@@ -48,6 +48,13 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
   const router = useRouter();
   const { loading: authLoading } = useProtectedRoute();
   const { isPageLoading } = usePageLoading();
+
+  // Dynamic mascot
+  const { mascotUrl } = useMascot(
+    'register',
+    'bottom-right',
+    '/images/mascot-cropped-1-tp 1.png'
+  );
 
   const [formData, setFormData] = useState<UserRegistration>({
     fullName: '',
@@ -80,14 +87,12 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
       newErrors.fullName = 'Nama lengkap tidak boleh kosong, ya!';
     if (!formData.age) newErrors.age = 'Umurnya berapa, nih?';
 
-    // Email validation
     if (!formData.email) {
       newErrors.email = 'Email-nya jangan lupa diisi, ya!';
     } else if (!emailRegex.test(formData.email)) {
       newErrors.email = 'Format email tidak valid, nih. Contoh: nama@email.com';
     }
 
-    // Username validation
     if (!formData.username) {
       newErrors.username = 'Username-nya jangan lupa diisi.';
     } else if (!usernameRegex.test(formData.username)) {
@@ -122,7 +127,6 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
       return;
     }
 
-    // Check for duplicates before proceeding with registration
     setIsCheckingDuplicates(true);
     try {
       const duplicateCheck = await checkUserDuplicates(
@@ -148,7 +152,6 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
         return;
       }
 
-      // If no duplicates found, proceed with registration
       if (onRegister) {
         await onRegister(formData);
       }
@@ -178,7 +181,6 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
     }
   }, [isShaking]);
 
-  // Show loading screen while page is loading or checking authentication
   if (isPageLoading || authLoading) {
     return <LoadingScreen message="Halaman sedang dimuat..." />;
   }
@@ -201,8 +203,8 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
   ];
   const icons = [
     <UserIcon key="nama" className="size-5 text-white md:size-6" />,
-    <UserIcon key="nama" className="size-5 text-white md:size-6" />,
-    <UserIcon key="user" className="size-5 text-white md:size-6" />,
+    <UserIcon key="age" className="size-5 text-white md:size-6" />,
+    <UserIcon key="email" className="size-5 text-white md:size-6" />,
     <UserIcon key="user" className="size-5 text-white md:size-6" />,
     <LockIcon key="pass" className="size-5 text-white md:size-6" />,
     <LockIcon key="konfirm" className="size-5 text-white md:size-6" />,
@@ -220,7 +222,7 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
     <>
       {showSuccessModal && (
         <SuccessModal
-          mascotSrc="/images/mascot-cropped-1-tp 1.png"
+          mascotSrc="/images/success-regist.png"
           onClose={() => {
             setShowSuccessModal(false);
             router.push('/login');
@@ -234,11 +236,14 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
           onClose={() => setShowErrorModal(false)}
           title="Oops! Ada Masalah"
           message={errorMessage}
-          mascotSrc="/images/mascot-cropped-1-tp 1.png"
+          mascotSrc="/images/regist-fail.png"
         />
       )}
 
-      <div className="relative grid min-h-screen place-items-center overflow-hidden bg-mobile-bg bg-cover bg-center p-12 font-sans md:bg-desktop-bg">
+      {/* UPDATED: Menggunakan 'page-container' agar background dinamis dari API.
+         'min-h-screen' dihapus karena sudah dihandle oleh class 'page-container'.
+      */}
+      <div className="page-container relative grid place-items-center overflow-hidden p-12 font-sans">
         <Link
           href="/login"
           className="absolute left-4 top-4 z-20 grid size-12 place-items-center rounded-full border-2 border-yellow-400/80 bg-form-bg/90 text-brand-yellow shadow-lg transition-transform hover:scale-110 md:left-6 md:top-6"
@@ -251,12 +256,11 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
             stroke="currentColor"
             className="size-6"
           >
-            {' '}
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
               d="M15.75 19.5L8.25 12l7.5-7.5"
-            />{' '}
+            />
           </svg>
         </Link>
 
@@ -287,9 +291,9 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
                     <div key={field.name}>
                       <div className="relative flex items-center">
                         <div
-                          className={`absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg md:size-9 ${iconBgs[index % 5]}`}
+                          className={`absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg md:size-9 ${iconBgs[index]}`}
                         >
-                          {icons[index % 5]}
+                          {icons[index]}
                         </div>
                         <input
                           type={
@@ -347,16 +351,19 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
           </div>
         </main>
 
-        <div className="pointer-events-none absolute bottom-0 right-0 z-20 w-36 md:w-52 lg:w-64 xl:w-72">
-          <Image
-            src="/images/mascot-cropped-1-tp 1.png"
-            alt="Mascot Cerdas Isyarat"
-            width={288}
-            height={350}
-            className="h-auto w-full"
-            priority
-          />
-        </div>
+        {/* Dynamic Mascot */}
+        {mascotUrl && (
+          <div className="pointer-events-none absolute bottom-0 right-0 z-20 w-36 md:w-52 lg:w-64 xl:w-72">
+            <Image
+              src={mascotUrl}
+              alt="Mascot Cerdas Isyarat"
+              width={288}
+              height={350}
+              className="h-auto w-full"
+              priority
+            />
+          </div>
+        )}
       </div>
     </>
   );

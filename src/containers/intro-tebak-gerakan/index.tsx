@@ -5,21 +5,27 @@ import React, {
   useEffect,
   useRef,
   useCallback,
-  useLayoutEffect, // 1. TAMBAHKAN INI
+  useLayoutEffect,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import BackButton from '@/components/shared/backbutton/backbutton';
 import UserDetail from '@/components/shared/userinfo';
 import MusicPlayer from '@/components/shared/musicplayer/musicplayer';
+import LeaderboardModal from '@/components/tebak-gerakan/leaderboard';
 import Image from 'next/image';
 import { CameraIcon, RefreshIcon, CloseIcon } from '@/components/icons';
 import InstructionCard from '@/components/intro-tebak-gerakan/instruction-card';
-import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import { useMascot } from '@/lib/hooks/use-mascot';
+
+import {
+  useRequireAuth,
+  usePageLoading,
+  useAuth,
+} from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
-
 import RulesModal from '@/components/tebak-gerakan/rules-modal';
+import { getUserHighScore } from '@/services/tebak-gerakan-service';
 
-// 2. TAMBAHKAN HOOK INI (Breakpoint 'md' Tailwind = 768px)
 const useIsDesktop = (breakpoint = 768) => {
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -28,8 +34,7 @@ const useIsDesktop = (breakpoint = 768) => {
       setIsDesktop(window.innerWidth >= breakpoint);
     };
 
-    updateMedia(); // Set nilai awal saat komponen dimuat di client
-
+    updateMedia();
     window.addEventListener('resize', updateMedia);
     return () => window.removeEventListener('resize', updateMedia);
   }, [breakpoint]);
@@ -39,9 +44,15 @@ const useIsDesktop = (breakpoint = 768) => {
 
 export default function IntroTebakGerakanPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
-  const isDesktop = useIsDesktop(); // 3. PANGGIL HOOKNYA
+  const isDesktop = useIsDesktop();
+  const { mascotUrl: rulesMascotUrl } = useMascot(
+    'rules',
+    'floating',
+    '/images/rule.png'
+  );
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | undefined>(undefined);
@@ -49,14 +60,20 @@ export default function IntroTebakGerakanPage() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isActivatingCamera, setIsActivatingCamera] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
-  const [score] = useState(0);
+  const [highScore, setHighScore] = useState(0);
   const [isMascotVisible, setIsMascotVisible] = useState(true);
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>(
     []
   );
   const [currentCameraId, setCurrentCameraId] = useState<string>('');
-
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      getUserHighScore(user.id).then(setHighScore);
+    }
+  }, [user?.id]);
 
   const getAvailableCameras = useCallback(async () => {
     try {
@@ -71,7 +88,7 @@ export default function IntroTebakGerakanPage() {
         setCurrentCameraId(videoDevices[0].deviceId);
       }
     } catch {
-      // Error handling
+      // Silent error handling
     }
   }, [currentCameraId]);
 
@@ -87,7 +104,8 @@ export default function IntroTebakGerakanPage() {
       streamRef.current = undefined;
     }
     if (videoRef.current) {
-      videoRef.current.srcObject = null; // eslint-disable-line unicorn/no-null
+      // eslint-disable-next-line unicorn/no-null
+      videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
     setError(undefined);
@@ -98,16 +116,14 @@ export default function IntroTebakGerakanPage() {
       setError(undefined);
       setIsActivatingCamera(true);
 
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (!navigator.mediaDevices?.getUserMedia) {
         setError('Browser kamu tidak mendukung akses kamera.');
         setIsActivatingCamera(false);
         return;
       }
 
-      // Set camera active first to render video element
       if (!isCameraActive && retryCount === 0) {
         setIsCameraActive(true);
-        // Wait for video element to be mounted
         setTimeout(() => activateCamera(deviceId, 1), 100);
         return;
       }
@@ -165,7 +181,7 @@ export default function IntroTebakGerakanPage() {
               setIsActivatingCamera(false);
               getAvailableCameras();
             })
-            .catch(_playError => {
+            .catch(() => {
               setError('Gagal memutar video dari kamera.');
               setIsActivatingCamera(false);
               setIsCameraActive(false);
@@ -240,11 +256,16 @@ export default function IntroTebakGerakanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-mobile-bg bg-cover bg-center font-sans md:bg-desktop-bg">
+    <div className="page-container min-h-screen font-sans">
       <RulesModal
         isOpen={isRulesModalOpen}
         onConfirm={confirmAndStartGame}
         onCancel={() => setIsRulesModalOpen(false)}
+      />
+      <LeaderboardModal
+        isOpen={isLeaderboardOpen}
+        onClose={() => setIsLeaderboardOpen(false)}
+        currentUserId={user?.id}
       />
 
       <div className="flex min-h-screen flex-col">
@@ -253,7 +274,17 @@ export default function IntroTebakGerakanPage() {
             <div className="flex items-center">
               <BackButton onClick={handleBack} />
             </div>
-            <div className="flex items-center pr-20">
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsLeaderboardOpen(true)}
+                className="fixed right-32 top-2 z-50 flex size-12 items-center justify-center rounded-full border-4 border-input-border bg-gradient-to-r from-yellow-400 to-orange-500 shadow-xl transition-transform hover:scale-110 sm:right-36 sm:top-4 sm:size-14"
+                aria-label="Lihat Peringkat"
+                title="Lihat Peringkat"
+              >
+                <span className="text-2xl sm:text-3xl">🏆</span>
+              </button>
+
               <div className="md:hidden">
                 <UserDetail mode="sidebar" />
               </div>
@@ -263,24 +294,21 @@ export default function IntroTebakGerakanPage() {
             </div>
           </div>
         </header>
+
         <MusicPlayer />
 
         <main className="flex flex-1 flex-col px-3 pb-3 pt-14 md:px-4 md:pb-4 md:pt-20">
-          {/* Header Title - More Compact on Mobile */}
           <div className="mb-2 text-center md:mb-6">
             <h1 className="text-2xl font-bold text-brand-yellow drop-shadow-lg text-stroke-md md:text-5xl">
               TEBAK GERAKAN
             </h1>
             <p className="mt-0.5 text-xs font-bold text-subtitle-cream text-stroke-sm md:mt-1 md:text-xl">
-              Skor tertinggi: {score}
+              Skor tertinggi: {highScore}
             </p>
           </div>
 
-          {/* Content Cards */}
           <div className="mb-2 flex flex-1 items-center justify-center md:mb-6">
-            {/* 4. GUNAKAN CONDITIONAL RENDERING */}
             {isDesktop ? (
-              /* Desktop Layout - HILANGKAN 'hidden' dan 'md:grid' */
               <div className="grid w-full max-w-6xl grid-cols-3 gap-6">
                 <InstructionCard step="1" title="AKTIFKAN KAMERA">
                   <div className="relative flex h-56 w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-orange-200/50 bg-gradient-to-br from-orange-100/50 to-yellow-100/50 shadow-inner">
@@ -297,7 +325,6 @@ export default function IntroTebakGerakanPage() {
                         )}
                       </div>
                     )}
-                    {/* INI videoRef UNTUK DESKTOP */}
                     <video
                       ref={videoRef}
                       autoPlay
@@ -400,9 +427,7 @@ export default function IntroTebakGerakanPage() {
                 </InstructionCard>
               </div>
             ) : (
-              /* Mobile Layout - HILANGKAN 'md:hidden' */
               <div className="flex w-full flex-col gap-2">
-                {/* Card 1 - Camera - Larger */}
                 <div className="rounded-xl border-2 border-orange-300/70 bg-gradient-to-br from-orange-50/90 to-yellow-50/90 p-2.5 shadow-lg backdrop-blur-sm">
                   <div className="mb-1.5 flex items-center gap-1.5">
                     <div className="flex size-6 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-yellow-500 font-comic text-xs font-bold text-white shadow-md">
@@ -421,7 +446,6 @@ export default function IntroTebakGerakanPage() {
                         </p>
                       </div>
                     )}
-                    {/* INI videoRef UNTUK MOBILE */}
                     <video
                       ref={videoRef}
                       autoPlay
@@ -470,9 +494,7 @@ export default function IntroTebakGerakanPage() {
                   )}
                 </div>
 
-                {/* Card 2 & 3 - Side by Side, Smaller */}
                 <div className="grid grid-cols-2 gap-2">
-                  {/* Card 2 */}
                   <div className="rounded-xl border-2 border-orange-300/70 bg-gradient-to-br from-orange-50/90 to-yellow-50/90 p-2.5 shadow-lg backdrop-blur-sm">
                     <div className="mb-1.5 flex items-center gap-1.5">
                       <div className="flex size-6 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-yellow-500 font-comic text-xs font-bold text-white shadow-md">
@@ -493,7 +515,6 @@ export default function IntroTebakGerakanPage() {
                     </div>
                   </div>
 
-                  {/* Card 3 */}
                   <div className="rounded-xl border-2 border-orange-300/70 bg-gradient-to-br from-orange-50/90 to-yellow-50/90 p-2.5 shadow-lg backdrop-blur-sm">
                     <div className="mb-1.5 flex items-center gap-1.5">
                       <div className="flex size-6 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-yellow-500 font-comic text-xs font-bold text-white shadow-md">
@@ -518,7 +539,6 @@ export default function IntroTebakGerakanPage() {
             )}
           </div>
 
-          {/* Start Button */}
           <div className="text-center">
             <button
               onClick={handleStartGame}
@@ -530,12 +550,11 @@ export default function IntroTebakGerakanPage() {
           </div>
         </main>
 
-        {/* Mascot - Smaller on Mobile */}
-        {isMascotVisible && (
+        {isMascotVisible && rulesMascotUrl && (
           <div className="pointer-events-none fixed bottom-0 right-0 z-20 w-20 md:w-48">
             <div className="relative">
               <Image
-                src="/images/rule.png"
+                src={rulesMascotUrl}
                 width={192}
                 height={243}
                 alt="Mascot"
