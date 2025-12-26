@@ -1,6 +1,7 @@
 // @/repositories/test-scores-repository.ts
 
 import { createClient } from '@/lib/supabase/client';
+import { insertEventLog } from './event-log-repository';
 
 export interface ExplorationTestScore {
   score_id: string;
@@ -90,6 +91,21 @@ export const saveTestScore = async (
     console.log(
       `✅ Score updated: ${keepHighestScore}%, Passed: ${keepPassedStatus}`
     );
+
+    // Log test completion event
+    try {
+      await insertEventLog({
+        event_type: 'learning_progress',
+        event_name: 'test_completed',
+        description: `User completed test for level ${params.levelNumber} with score ${params.score}% (${params.passed ? 'passed' : 'failed'})`,
+        actor_type: 'user',
+        actor_id: params.userId,
+      });
+    } catch (logError) {
+      // Don't block test score saving if event logging fails
+      console.error('Failed to log test completion:', logError);
+    }
+
     return data;
   } else {
     // Insert new record
@@ -116,6 +132,21 @@ export const saveTestScore = async (
     console.log(
       `✨ New score recorded: ${params.score}%, Passed: ${params.passed}`
     );
+
+    // Log test completion event
+    try {
+      await insertEventLog({
+        event_type: 'learning_progress',
+        event_name: 'test_completed',
+        description: `User completed test for level ${params.levelNumber} with score ${params.score}% (${params.passed ? 'passed' : 'failed'})`,
+        actor_type: 'user',
+        actor_id: params.userId,
+      });
+    } catch (logError) {
+      // Don't block test score saving if event logging fails
+      console.error('Failed to log test completion:', logError);
+    }
+
     return data;
   }
 };

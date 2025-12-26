@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
+import { insertEventLog } from '@/repositories/event-log-repository';
+import { logServiceError } from '@/lib/utils/error-logger';
 
 // Sesuaikan interface dengan kebutuhan UI (tetap butuh image_url untuk <Image/>)
 // Tapi kita akan ambil datanya lewat relasi UUID
@@ -35,6 +37,7 @@ export const getAllAvatars = async (): Promise<UserAvatar[]> => {
 
   if (error) {
     console.error('Failed to fetch avatars:', error);
+    await logServiceError(error, 'avatar-service');
     return [];
   }
 
@@ -65,7 +68,22 @@ export const updateUserAvatar = async (
     .eq('user_id', userId);
 
   if (error) {
+    await logServiceError(error, 'avatar-service', userId);
     throw new Error(`Failed to update user avatar: ${error.message}`);
+  }
+
+  // Log avatar change event
+  try {
+    await insertEventLog({
+      event_type: 'user_profile',
+      event_name: 'avatar_changed',
+      description: `User changed avatar to ${avatarId}`,
+      actor_type: 'user',
+      actor_id: userId,
+    });
+  } catch (logError) {
+    // Don't block avatar update if event logging fails
+    console.error('Failed to log avatar change event:', logError);
   }
 };
 

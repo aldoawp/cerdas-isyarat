@@ -17,6 +17,8 @@ import { useProtectedRoute, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
 import { createClient } from '@/lib/supabase/client';
 import { useMascot } from '@/lib/hooks/use-mascot';
+import { logServiceError } from '@/lib/utils/error-logger';
+import { insertWarningLog } from '@/repositories/warning-log-repository';
 
 type RegisterPageProps = {
   onRegister?: (form: UserRegistration) => Promise<unknown>;
@@ -31,7 +33,10 @@ const checkUserDuplicates = async (email: string, username: string) => {
     .or(`email.eq.${email},username.eq.${username}`)
     .limit(2);
 
-  if (error) throw error;
+  if (error) {
+    await logServiceError(error, 'register-page');
+    throw error;
+  }
 
   const existingEmail = data?.find(user => user.email === email);
   const existingUsername = data?.find(user => user.username === username);
@@ -77,7 +82,10 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
     confirmPassword: false,
   });
 
-  const validateForm = (): boolean => {
+  const validateForm = (): {
+    isValid: boolean;
+    errors: Partial<Record<keyof UserRegistration, string>>;
+  } => {
     const newErrors: Partial<Record<keyof UserRegistration, string>> = {};
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -116,13 +124,13 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
         'Passwordnya harus sama dengan yang di atas, nih.';
     }
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return { isValid: Object.keys(newErrors).length === 0, errors: newErrors };
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const isFormValid = validateForm();
-    if (!isFormValid) {
+    const { isValid } = validateForm();
+    if (!isValid) {
       setIsShaking(true);
       return;
     }
@@ -136,16 +144,34 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
 
       if (duplicateCheck.emailExists || duplicateCheck.usernameExists) {
         let errorMsg = '';
+        let duplicateType = '';
+
         if (duplicateCheck.emailExists && duplicateCheck.usernameExists) {
           errorMsg =
             'Email dan username sudah digunakan. Silakan gunakan email dan username yang berbeda.';
+          duplicateType = 'email and username';
         } else if (duplicateCheck.emailExists) {
           errorMsg =
             'Email sudah digunakan. Silakan gunakan email yang berbeda.';
+          duplicateType = 'email';
         } else if (duplicateCheck.usernameExists) {
           errorMsg =
             'Username sudah digunakan. Silakan gunakan username yang berbeda.';
+          duplicateType = 'username';
         }
+
+        // Log warning for duplicate user attempt
+        try {
+          await insertWarningLog({
+            warning_code: 'DUPLICATE_USER_ATTEMPT',
+            warning_message: `Registration attempt with duplicate ${duplicateType}. Email: ${formData.email}, Username: ${formData.username}`,
+            module: 'register',
+          });
+        } catch (logError) {
+          // Don't block registration flow if warning logging fails
+          console.error('Failed to log duplicate warning:', logError);
+        }
+
         setErrorMessage(errorMsg);
         setShowErrorModal(true);
         setIsCheckingDuplicates(false);
@@ -157,6 +183,8 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
       }
       setShowSuccessModal(true);
     } catch (error) {
+      // Log registration error
+      await logServiceError(error, 'register-page');
       const message =
         error instanceof Error ? error.message : 'Registrasi gagal.';
       setErrorMessage(message);

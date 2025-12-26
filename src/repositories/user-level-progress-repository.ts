@@ -1,6 +1,7 @@
 // @/repositories/user-level-progress-repository.ts
 
 import { createClient } from '@/lib/supabase/client';
+import { logDatabaseError } from '@/lib/utils/error-logger';
 
 export interface UserLevelProgress {
   id: string;
@@ -30,6 +31,10 @@ export const getLevelProgress = async (
 
   if (error && error.code !== 'PGRST116') {
     console.error('Error fetching level progress:', error);
+    await logDatabaseError(error, {
+      module: 'user-level-progress-repository',
+      userId,
+    });
     throw error;
   }
 
@@ -52,6 +57,10 @@ export const getAllLevelProgress = async (
 
   if (error) {
     console.error('Error fetching all level progress:', error);
+    await logDatabaseError(error, {
+      module: 'user-level-progress-repository',
+      userId,
+    });
     throw error;
   }
 
@@ -88,6 +97,11 @@ export const updateLevelProgress = async (
 
     if (error) {
       console.error('Error creating level progress:', error);
+      await logDatabaseError(error, {
+        module: 'user-level-progress-repository',
+        userId,
+        errorCode: 'PROGRESS_CREATE_FAILED',
+      });
       throw error;
     }
 
@@ -111,6 +125,11 @@ export const updateLevelProgress = async (
 
     if (error) {
       console.error('Error updating level progress:', error);
+      await logDatabaseError(error, {
+        module: 'user-level-progress-repository',
+        userId,
+        errorCode: 'PROGRESS_UPDATE_FAILED',
+      });
       throw error;
     }
 

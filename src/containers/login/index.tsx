@@ -12,7 +12,10 @@ import {
 } from '@/components/icons';
 import { useProtectedRoute, usePageLoading } from '@/lib/contexts/auth-context';
 import { createClient } from '@/lib/supabase/client';
+import { insertEventLog } from '@/repositories/event-log-repository';
+import { insertWarningLog } from '@/repositories/warning-log-repository';
 import LoadingScreen from '@/components/shared/loading-screen';
+import { logAuthError } from '@/lib/utils/error-logger';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -61,6 +64,20 @@ export default function LoginPage() {
       if (error) throw error;
 
       if (data.user) {
+        // Log login event
+        try {
+          await insertEventLog({
+            event_type: 'authentication',
+            event_name: 'user_login',
+            description: 'User logged in successfully',
+            actor_type: 'user',
+            actor_id: data.user.id,
+          });
+        } catch (logError) {
+          // Don't block login if event logging fails
+          console.error('Failed to log login event:', logError);
+        }
+
         // Store user data in localStorage for backward compatibility
         localStorage.setItem(
           'loggedInUser',
@@ -75,7 +92,22 @@ export default function LoginPage() {
         // Redirect to onboarding page
         router.push('/onboarding');
       }
-    } catch {
+    } catch (error) {
+      // Log authentication error
+      await logAuthError(error);
+
+      // Log warning for failed login attempt
+      try {
+        await insertWarningLog({
+          warning_code: 'AUTH_LOGIN_FAILED',
+          warning_message: `Failed login attempt for username/email: ${username}. Reason: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          module: 'login',
+        });
+      } catch (logError) {
+        // Don't block login flow if warning logging fails
+        console.error('Failed to log warning:', logError);
+      }
+
       setError('Username atau password salah, coba lagi ya!');
       setIsShaking(true);
     } finally {
@@ -163,13 +195,13 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Link
+            {/* <Link
               href="/lupa-password"
               // Menghilangkan style inline
               className="mt-2 block text-right text-sm font-bold text-amber-700 hover:underline"
             >
               Lupa password?
-            </Link>
+            </Link> */}
 
             {error && (
               <p className="mt-3 text-center text-sm font-semibold text-red-600">

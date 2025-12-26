@@ -23,10 +23,11 @@ import {
   useAuth,
 } from '@/lib/contexts/auth-context'; // Import useAuth
 import LoadingScreen from '@/components/shared/loading-screen';
-import { aslAlphabetMovements } from '@/dummy/tebak-gerakan-data';
+import { getAllMovements } from '@/repositories/guessing-challenge-repository';
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { drawConnectors, drawLandmarks } from '@/lib/utils/drawing-utils';
 import { saveGameScore } from '@/services/tebak-gerakan-service'; // Pastikan path ini benar
+import { insertEventLog } from '@/repositories/event-log-repository';
 
 const HAND_CONNECTIONS: [number, number][] = [
   [0, 1],
@@ -353,13 +354,39 @@ export default function TebakGerakanPage() {
   }, [isProcessing, currentMovement, sendPredictionRequest]);
 
   useEffect(() => {
-    setShuffledMovements(shuffleArray(aslAlphabetMovements));
+    const initializeGame = async () => {
+      try {
+        // Fetch movements from database
+        const movements = await getAllMovements();
+        setShuffledMovements(shuffleArray(movements));
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load movements:', error);
+        // Optionally show error modal or redirect
+      }
+    };
+
+    initializeGame();
     startCamera();
+
+    // Log tebak gerakan start event
+    if (user?.id) {
+      insertEventLog({
+        event_type: 'game_activity',
+        event_name: 'tebak_gerakan_started',
+        description: 'User started tebak gerakan game mode',
+        actor_type: 'user',
+        actor_id: user.id,
+      }).catch(logError => {
+        // Don't block game start if event logging fails
+        console.error('Failed to log tebak gerakan start:', logError);
+      });
+    }
 
     return () => {
       stopCamera();
     };
-  }, [startCamera, stopCamera]);
+  }, [startCamera, stopCamera, user?.id]);
 
   useEffect(() => {
     const video = videoRef.current;
