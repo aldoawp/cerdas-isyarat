@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Bisindo Learning App',
-  description: 'Aplikasi Pembelajaran Bahasa Isyarat Indonesia',
+  title: 'Cerdas Isyarat',
+  description: 'Belajar Bahasa Isyarat BISINDO',
 };
 
 export default function RootLayout({
