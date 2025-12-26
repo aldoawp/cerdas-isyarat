@@ -13,6 +13,7 @@ import {
 import { useProtectedRoute, usePageLoading } from '@/lib/contexts/auth-context';
 import { createClient } from '@/lib/supabase/client';
 import { insertEventLog } from '@/repositories/event-log-repository';
+import { insertWarningLog } from '@/repositories/warning-log-repository';
 import LoadingScreen from '@/components/shared/loading-screen';
 import { logAuthError } from '@/lib/utils/error-logger';
 
@@ -94,6 +95,19 @@ export default function LoginPage() {
     } catch (error) {
       // Log authentication error
       await logAuthError(error);
+
+      // Log warning for failed login attempt
+      try {
+        await insertWarningLog({
+          warning_code: 'AUTH_LOGIN_FAILED',
+          warning_message: `Failed login attempt for username/email: ${username}. Reason: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          module: 'login',
+        });
+      } catch (logError) {
+        // Don't block login flow if warning logging fails
+        console.error('Failed to log warning:', logError);
+      }
+
       setError('Username atau password salah, coba lagi ya!');
       setIsShaking(true);
     } finally {
