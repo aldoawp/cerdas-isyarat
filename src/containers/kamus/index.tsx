@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import BackButton from '@/components/shared/backbutton/backbutton';
@@ -15,8 +15,13 @@ import {
   DictionaryCategory,
   DictionarySearchResult,
 } from '@/types';
-import { useRequireAuth, usePageLoading } from '@/lib/contexts/auth-context';
+import {
+  useRequireAuth,
+  usePageLoading,
+  useAuth,
+} from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
+import { insertEventLog } from '@/repositories/event-log-repository';
 
 interface KamusPageProps {
   dictionaryData: DictionarySearchResult;
@@ -28,6 +33,7 @@ interface ImageLoadingState {
 
 export default function KamusPage({ dictionaryData }: KamusPageProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const { loading: authLoading } = useRequireAuth();
   const { isPageLoading } = usePageLoading();
   const [view, setView] = useState<'category' | 'wordList' | 'search'>(
@@ -54,6 +60,7 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
   const [imageLoadingStates, setImageLoadingStates] =
     useState<ImageLoadingState>({});
   const ITEMS_PER_PAGE = 8;
+  const hasLoggedVisit = useRef(false);
 
   // Filter dan search logic
   useEffect(() => {
@@ -105,6 +112,23 @@ export default function KamusPage({ dictionaryData }: KamusPageProps) {
     }
     setImageLoadingStates(prev => ({ ...prev, ...newLoadingStates }));
   }, [filteredContent, currentPage]);
+
+  // Log kamus page visit event (only once)
+  useEffect(() => {
+    if (user?.id && !hasLoggedVisit.current) {
+      hasLoggedVisit.current = true;
+      insertEventLog({
+        event_type: 'page_visit',
+        event_name: 'kamus_bisindo_opened',
+        description: 'User opened kamus bisindo page',
+        actor_type: 'user',
+        actor_id: user.id,
+      }).catch(logError => {
+        // Don't block page load if event logging fails
+        console.error('Failed to log kamus page visit:', logError);
+      });
+    }
+  }, [user?.id]);
 
   const handleImageLoad = (itemId: string) => {
     setImageLoadingStates(prev => ({

@@ -17,6 +17,7 @@ import { useProtectedRoute, usePageLoading } from '@/lib/contexts/auth-context';
 import LoadingScreen from '@/components/shared/loading-screen';
 import { createClient } from '@/lib/supabase/client';
 import { useMascot } from '@/lib/hooks/use-mascot';
+import { logServiceError } from '@/lib/utils/error-logger';
 
 type RegisterPageProps = {
   onRegister?: (form: UserRegistration) => Promise<unknown>;
@@ -31,7 +32,10 @@ const checkUserDuplicates = async (email: string, username: string) => {
     .or(`email.eq.${email},username.eq.${username}`)
     .limit(2);
 
-  if (error) throw error;
+  if (error) {
+    await logServiceError(error, 'register-page');
+    throw error;
+  }
 
   const existingEmail = data?.find(user => user.email === email);
   const existingUsername = data?.find(user => user.username === username);
@@ -157,6 +161,8 @@ export default function RegisterPage({ onRegister }: RegisterPageProps) {
       }
       setShowSuccessModal(true);
     } catch (error) {
+      // Log registration error
+      await logServiceError(error, 'register-page');
       const message =
         error instanceof Error ? error.message : 'Registrasi gagal.';
       setErrorMessage(message);

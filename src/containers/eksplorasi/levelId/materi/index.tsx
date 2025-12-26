@@ -21,6 +21,7 @@ import {
 import { updateUserProgress } from '@/repositories/users-progress-repository';
 import { getUserProgressData } from '@/services/users-progress-service';
 import { markLevelAsCompleted } from '@/repositories/user-level-progress-repository';
+import { insertEventLog } from '@/repositories/event-log-repository';
 
 const ConfirmationModal = ({
   isOpen,
@@ -239,6 +240,24 @@ export default function MateriPage() {
           );
 
           await markLevelAsCompleted(user.id, levelNumber);
+
+          // Log learning module completion event
+          try {
+            await insertEventLog({
+              event_type: 'learning_progress',
+              event_name: 'learning_module_completed',
+              description: `User completed learning module for level ${levelNumber}`,
+              actor_type: 'user',
+              actor_id: user.id,
+            });
+          } catch (logError) {
+            // Don't block completion if event logging fails
+            // eslint-disable-next-line no-console
+            console.error(
+              'Failed to log learning module completion:',
+              logError
+            );
+          }
 
           // ✅ Only set XP to 100 & refill lives if at current level
           if (levelNumber === userCurrentLevel) {

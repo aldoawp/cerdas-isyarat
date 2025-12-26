@@ -5,7 +5,9 @@ import {
   checkUserExistsClient,
 } from '@/repositories/users-repository';
 import { createUserProgressServer } from '@/repositories/users-progress-repository-server';
+import { insertEventLog } from '@/repositories/event-log-repository';
 import { UserRegistration } from '@/types';
+import { logServiceError, logCriticalError } from '@/lib/utils/error-logger';
 
 // Imports dari Code 2 (Untuk Logic Avatar & Direct Supabase)
 import { createClient } from '@/lib/supabase/client';
@@ -40,6 +42,7 @@ export const checkUserDuplicates = async (
     return result;
   } catch (error) {
     console.error('Error checking user duplicates:', error);
+    await logServiceError(error, 'users-service');
     throw new Error('Failed to check user duplicates');
   }
 };
@@ -53,6 +56,7 @@ export const checkUserDuplicatesClient = async (
     return result;
   } catch (error) {
     console.error('Error checking user duplicates:', error);
+    await logServiceError(error, 'users-service');
     throw new Error('Failed to check user duplicates');
   }
 };
@@ -96,9 +100,29 @@ export const registerUser = async (
       progressId: userProgress.progress_id,
     });
 
+    // Log registration event
+    try {
+      await insertEventLog({
+        event_type: 'authentication',
+        event_name: 'user_registration',
+        description: 'New user registered successfully',
+        actor_type: 'user',
+        actor_id: userId,
+      });
+    } catch (logError) {
+      // Don't block registration if event logging fails
+      console.error('Failed to log registration event:', logError);
+    }
+
     return { userId, email: payload.email, username: payload.username };
   } catch (error) {
     console.error('Registration error:', error);
+    // Log critical registration error
+    await logCriticalError(error, {
+      module: 'users-service',
+      errorCode: 'REGISTRATION_FAILED',
+      additionalContext: { email: payload.email, username: payload.username },
+    });
     if (error instanceof Error) {
       throw error;
     }

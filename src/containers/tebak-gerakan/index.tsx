@@ -27,6 +27,7 @@ import { aslAlphabetMovements } from '@/dummy/tebak-gerakan-data';
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { drawConnectors, drawLandmarks } from '@/lib/utils/drawing-utils';
 import { saveGameScore } from '@/services/tebak-gerakan-service'; // Pastikan path ini benar
+import { insertEventLog } from '@/repositories/event-log-repository';
 
 const HAND_CONNECTIONS: [number, number][] = [
   [0, 1],
@@ -356,10 +357,24 @@ export default function TebakGerakanPage() {
     setShuffledMovements(shuffleArray(aslAlphabetMovements));
     startCamera();
 
+    // Log tebak gerakan start event
+    if (user?.id) {
+      insertEventLog({
+        event_type: 'game_activity',
+        event_name: 'tebak_gerakan_started',
+        description: 'User started tebak gerakan game mode',
+        actor_type: 'user',
+        actor_id: user.id,
+      }).catch(logError => {
+        // Don't block game start if event logging fails
+        console.error('Failed to log tebak gerakan start:', logError);
+      });
+    }
+
     return () => {
       stopCamera();
     };
-  }, [startCamera, stopCamera]);
+  }, [startCamera, stopCamera, user?.id]);
 
   useEffect(() => {
     const video = videoRef.current;

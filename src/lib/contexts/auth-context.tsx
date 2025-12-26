@@ -11,6 +11,8 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 import { usePathname } from 'next/navigation';
+import { insertEventLog } from '@/repositories/event-log-repository';
+import { logAuthError } from '@/lib/utils/error-logger';
 
 interface AuthContextType {
   user: User | undefined;
@@ -52,8 +54,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } = await supabase.auth.getSession();
         setSession(session ?? undefined);
         setUser(session?.user ?? undefined);
-      } catch {
-        // Silent error handling
+      } catch (error) {
+        // Log session fetch error
+        await logAuthError(error);
       } finally {
         setLoading(false);
       }
@@ -82,9 +85,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     try {
+      // Log logout event before signing out (while we still have user info)
+      if (user?.id) {
+        try {
+          await insertEventLog({
+            event_type: 'authentication',
+            event_name: 'user_logout',
+            description: 'User logged out successfully',
+            actor_type: 'user',
+            actor_id: user.id,
+          });
+        } catch (logError) {
+          // Don't block logout if event logging fails
+          console.error('Failed to log logout event:', logError);
+        }
+      }
+
       await supabase.auth.signOut();
-    } catch {
-      // Error handling is done silently
+    } catch (error) {
+      // Log sign out error
+      await logAuthError(error, user?.id);
     }
   };
 
@@ -92,13 +112,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const { data, error } = await supabase.auth.refreshSession();
       if (error) {
+        // Log session refresh error
+        await logAuthError(error, user?.id);
         // If refresh fails, sign out the user
         await signOut();
       } else {
         setSession(data.session ?? undefined);
         setUser(data.session?.user ?? undefined);
       }
-    } catch {
+    } catch (error) {
+      await logAuthError(error, user?.id);
       await signOut();
     }
   };

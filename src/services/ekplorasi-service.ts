@@ -31,6 +31,7 @@ import {
   // 🔧 FIXED: Hapus getCurrentStepForLevel karena tidak dipakai
   UserLevelProgress,
 } from '@/repositories/user-level-progress-repository';
+import { logServiceError } from '@/lib/utils/error-logger';
 
 export interface ProcessedExplorationLevel {
   id: string;
@@ -191,6 +192,7 @@ export const getExplorationLevelsWithProgress = async (
     };
   } catch (error) {
     console.error('Error fetching exploration levels with progress:', error);
+    await logServiceError(error, 'ekplorasi-service');
     throw new Error('Failed to load exploration levels');
   }
 };
@@ -202,6 +204,7 @@ export const getExplorationLevel = async (
     return await getExplorationLevelById(explorationId);
   } catch (error) {
     console.error('Error fetching exploration level:', error);
+    await logServiceError(error, 'ekplorasi-service');
     throw new Error('Failed to load exploration level');
   }
 };
@@ -226,6 +229,7 @@ export const getLearningModulesForExploration = async (
     return processLearningModules(modules);
   } catch (error) {
     console.error('Error fetching learning modules:', error);
+    await logServiceError(error, 'ekplorasi-service');
     throw new Error('Failed to load learning modules');
   }
 };
@@ -264,6 +268,7 @@ export const updateUserExplorationProgress = async (
     return updatedProgress;
   } catch (error) {
     console.error('Error updating user exploration progress:', error);
+    await logServiceError(error, 'ekplorasi-service', userId);
     throw new Error('Failed to update exploration progress');
   }
 };
@@ -342,6 +347,7 @@ export const getAssessmentQuestionsForExploration = async (
     return processAssessmentModules(modulesWithOptions, levelId);
   } catch (error) {
     console.error('Error fetching assessment questions:', error);
+    await logServiceError(error, 'ekplorasi-service');
     throw new Error('Failed to load assessment questions');
   }
 };

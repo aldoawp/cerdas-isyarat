@@ -4,6 +4,7 @@ import {
   DictionaryWord,
   DictionarySearchResult,
 } from '@/types';
+import { logDatabaseError } from '@/lib/utils/error-logger';
 
 const getKamusData = async (): Promise<DictionarySearchResult> => {
   const supabase = createClient();
@@ -90,6 +91,10 @@ const getKamusData = async (): Promise<DictionarySearchResult> => {
     return { categories, words, totalResults: words.length };
   } catch (error) {
     console.error('Error fetching kamus data:', error);
+    await logDatabaseError(error, {
+      module: 'kamus-repository',
+      errorCode: 'DICTIONARY_FETCH_FAILED',
+    });
     throw error;
   }
 };

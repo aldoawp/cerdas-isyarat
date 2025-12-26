@@ -1,4 +1,5 @@
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { logCriticalError, logDatabaseError } from '@/lib/utils/error-logger';
 
 export interface CreateAuthUserParams {
   email: string;
@@ -19,7 +20,14 @@ export const createAuthUser = async ({
 }: CreateAuthUserParams) => {
   const supabase = await createServerClient();
   const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error) throw error;
+  if (error) {
+    await logCriticalError(error, {
+      module: 'users-repository',
+      errorCode: 'AUTH_USER_CREATION_FAILED',
+      additionalContext: { email },
+    });
+    throw error;
+  }
   return data;
 };
 
@@ -38,7 +46,15 @@ export const insertUserProfile = async ({
     full_name: fullName ?? undefined,
     age,
   } as any);
-  if (error) throw error;
+  if (error) {
+    await logCriticalError(error, {
+      module: 'users-repository',
+      errorCode: 'USER_PROFILE_INSERT_FAILED',
+      userId,
+      additionalContext: { email, username },
+    });
+    throw error;
+  }
 };
 
 export const checkUserExists = async (email: string, username: string) => {
@@ -51,7 +67,13 @@ export const checkUserExists = async (email: string, username: string) => {
     .or(`email.eq.${email},username.eq.${username}`)
     .limit(2);
 
-  if (error) throw error;
+  if (error) {
+    await logDatabaseError(error, {
+      module: 'users-repository',
+      errorCode: 'USER_EXISTS_CHECK_FAILED',
+    });
+    throw error;
+  }
 
   const existingEmail = data?.find(user => user.email === email);
   const existingUsername = data?.find(user => user.username === username);
@@ -79,7 +101,13 @@ export const checkUserExistsClient = async (
     .or(`email.eq.${email},username.eq.${username}`)
     .limit(2);
 
-  if (error) throw error;
+  if (error) {
+    await logDatabaseError(error, {
+      module: 'users-repository',
+      errorCode: 'USER_EXISTS_CHECK_FAILED',
+    });
+    throw error;
+  }
 
   const existingEmail = data?.find(user => user.email === email);
   const existingUsername = data?.find(user => user.username === username);
