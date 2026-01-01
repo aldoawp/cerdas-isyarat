@@ -107,6 +107,23 @@ const ChevronDownIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const ExclamationIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    {...props}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+    />
+  </svg>
+);
+
 // Komponen Music Player
 const MusicPlayer = () => {
   const {
@@ -117,6 +134,7 @@ const MusicPlayer = () => {
     hasUserInteracted,
     isClient,
     isLoading,
+    error,
     musicList,
     currentMusic,
     togglePlayPause,
@@ -136,7 +154,7 @@ const MusicPlayer = () => {
 
   // Tooltip muncul setiap 5 detik jika user belum interact
   useEffect(() => {
-    if (!hasUserInteracted && isClient && !isLoading) {
+    if (!hasUserInteracted && isClient && !isLoading && !error) {
       setShowTooltip(true);
 
       const hideTooltip = () => {
@@ -159,7 +177,7 @@ const MusicPlayer = () => {
       setShowTooltip(false);
       if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
     }
-  }, [hasUserInteracted, isClient, isLoading]);
+  }, [hasUserInteracted, isClient, isLoading, error]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -184,6 +202,18 @@ const MusicPlayer = () => {
     return <div className="fixed right-4 top-4 size-14" />;
   }
 
+  // PERUBAHAN: Tampilkan error state jika ada masalah dengan database
+  if (error && !isLoading) {
+    return (
+      <div className="fixed right-2 top-2 z-[9999] sm:right-4 sm:top-4">
+        <div className="flex items-center gap-2 rounded-full border-4 border-red-200 bg-red-500 px-4 py-2 shadow-xl">
+          <ExclamationIcon className="size-6 flex-shrink-0 text-white" />
+          <span className="text-xs text-white sm:text-sm">{error}</span>
+        </div>
+      </div>
+    );
+  }
+
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     changeVolume(Number.parseFloat(e.target.value));
   };
@@ -206,14 +236,14 @@ const MusicPlayer = () => {
   const hasMultipleMusic = musicList.length > 1;
 
   return (
-    <div className="fixed right-2 top-2 z-50 sm:right-4 sm:top-4">
+    <div className="fixed right-2 top-2 z-[9999] sm:right-4 sm:top-4">
       <div className="flex flex-row-reverse items-start gap-2 sm:gap-3">
         {/* Main Play Button */}
         <div className="relative">
           <button
             onClick={togglePlayPause}
-            disabled={isLoading}
-            className={`group relative flex size-12 items-center justify-center overflow-hidden rounded-full border-4 border-input-border bg-amber-500 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 sm:size-14 ${!hasUserInteracted && !isLoading ? 'animate-pulse ring-2 ring-white/50' : ''}`}
+            disabled={isLoading || !!error}
+            className={`group relative flex size-12 items-center justify-center overflow-hidden rounded-full border-4 border-input-border bg-amber-500 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 sm:size-14 ${!hasUserInteracted && !isLoading && !error ? 'animate-pulse ring-2 ring-white/50' : ''}`}
             aria-label={isPlaying ? 'Pause music' : 'Play music'}
           >
             {isPlaying && (
@@ -233,7 +263,7 @@ const MusicPlayer = () => {
           </button>
 
           {/* Tooltip */}
-          {showTooltip && !hasUserInteracted && !isLoading && (
+          {showTooltip && !hasUserInteracted && !isLoading && !error && (
             <div className="absolute -bottom-20 right-0 w-44 animate-bounce rounded-lg bg-amber-600 px-3 py-2 text-xs text-white shadow-lg sm:w-48">
               <div className="absolute -top-2 right-4 size-0 border-x-8 border-b-8 border-x-transparent border-b-amber-600" />
               Klik tombol ini untuk memulai musik! 🎵
@@ -241,118 +271,125 @@ const MusicPlayer = () => {
           )}
         </div>
 
-        {/* Controls Panel - SATU PANEL SAJA */}
-        <div
-          className={`relative overflow-visible transition-all duration-500 ease-out ${controlsVisible ? 'max-w-2xl opacity-100' : 'max-w-0 opacity-0'}`}
-        >
-          <div className="flex flex-col gap-0 rounded-3xl border-2 border-input-border bg-amber-500/90 shadow-xl backdrop-blur-sm">
-            {/* Volume Controls - Top Part */}
-            <div className="flex items-center gap-2 px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2">
-              <button
-                onClick={toggleMute}
-                className="group rounded-full p-1 transition-colors duration-200 hover:bg-black/20 focus:outline-none"
-                aria-label={isMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMuted || volume === 0 ? (
-                  <SpeakerXMarkIcon className="size-4 text-white/70 transition-colors group-hover:text-white sm:size-5" />
-                ) : (
-                  <SpeakerWaveIcon className="size-4 text-white transition-colors group-hover:text-amber-300 sm:size-5" />
-                )}
-              </button>
+        {/* Controls Panel - Hanya tampil jika tidak ada error */}
+        {!error && (
+          <div
+            className={`relative overflow-visible transition-all duration-500 ease-out ${controlsVisible ? 'max-w-2xl opacity-100' : 'max-w-0 opacity-0'}`}
+          >
+            <div className="flex flex-col gap-0 rounded-3xl border-2 border-input-border bg-amber-500/90 shadow-xl backdrop-blur-sm">
+              {/* Volume Controls - Top Part */}
+              <div className="flex items-center gap-2 px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2">
+                <button
+                  onClick={toggleMute}
+                  className="group rounded-full p-1 transition-colors duration-200 hover:bg-black/20 focus:outline-none"
+                  aria-label={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted || volume === 0 ? (
+                    <SpeakerXMarkIcon className="size-4 text-white/70 transition-colors group-hover:text-white sm:size-5" />
+                  ) : (
+                    <SpeakerWaveIcon className="size-4 text-white transition-colors group-hover:text-amber-300 sm:size-5" />
+                  )}
+                </button>
 
-              <div className="relative w-16 sm:w-20">
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
-                  style={{
-                    background: `linear-gradient(to right, white 0%, white ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.3) ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.3) 100%)`,
-                  }}
-                  aria-label="Volume slider"
-                />
+                <div className="relative w-16 sm:w-20">
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
+                    style={{
+                      background: `linear-gradient(to right, white 0%, white ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.3) ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.3) 100%)`,
+                    }}
+                    aria-label="Volume slider"
+                  />
+                </div>
+
+                <span className="min-w-7 text-right text-xs font-medium text-white sm:min-w-8">
+                  {Math.round((isMuted ? 0 : volume) * 100)}%
+                </span>
               </div>
 
-              <span className="min-w-7 text-right text-xs font-medium text-white sm:min-w-8">
-                {Math.round((isMuted ? 0 : volume) * 100)}%
-              </span>
-            </div>
+              {/* Music Selector - Bottom Part (always shown when there's music) */}
+              {hasMultipleMusic && (
+                <>
+                  {/* Divider */}
+                  <div className="mx-3 h-px bg-white/30" />
 
-            {/* Music Selector - Bottom Part (same panel) */}
-            {hasMultipleMusic && (
-              <>
-                {/* Divider */}
-                <div className="mx-3 h-px bg-white/30" />
-
-                {/* Music controls */}
-                <div className="relative flex items-center gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3 sm:py-2">
-                  <div className="relative flex-1" ref={dropdownRef}>
-                    <button
-                      onClick={handleToggleDropdown}
-                      className="flex w-full items-center justify-between gap-1 rounded-full px-2 py-0.5 text-xs text-white transition-colors hover:bg-black/20 sm:gap-1.5 sm:py-1"
-                      aria-label="Select music"
-                    >
-                      <span className="truncate text-xs font-medium sm:text-sm">
-                        {currentMusic?.title || 'Select Music'}
-                      </span>
-                      <ChevronDownIcon
-                        className={`size-3 flex-shrink-0 transition-transform sm:size-4 ${showDropdown ? 'rotate-180' : ''}`}
-                      />
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    {showDropdown && (
-                      <div
-                        className="absolute inset-x-0 top-full z-[100] mt-2 rounded-lg border-2 border-amber-400 bg-white shadow-2xl"
-                        style={{ position: 'absolute' }}
+                  {/* Music controls */}
+                  <div className="relative flex items-center gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3 sm:py-2">
+                    <div className="relative flex-1" ref={dropdownRef}>
+                      <button
+                        onClick={handleToggleDropdown}
+                        className="flex w-full items-center justify-between gap-1 rounded-full px-2 py-0.5 text-xs text-white transition-colors hover:bg-black/20 sm:gap-1.5 sm:py-1"
+                        aria-label="Select music"
                       >
-                        <div className="max-h-56 overflow-y-auto rounded-lg sm:max-h-64">
-                          {musicList.map(music => (
-                            <button
-                              key={music.music_id}
-                              onClick={() => handleMusicSelect(music.music_id)}
-                              className={`w-full px-3 py-2 text-left text-xs transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-amber-50 sm:px-4 sm:py-2.5 sm:text-sm ${
-                                currentMusic?.music_id === music.music_id
-                                  ? 'bg-amber-100 font-semibold text-amber-700'
-                                  : 'text-gray-700'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="truncate">{music.title}</span>
-                                {currentMusic?.music_id === music.music_id && (
-                                  <span className="ml-1 text-amber-600 sm:ml-2">
-                                    ♪
-                                  </span>
-                                )}
-                              </div>
-                              {music.description && (
-                                <p className="mt-0.5 truncate text-xs text-gray-500">
-                                  {music.description}
-                                </p>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                        <span className="truncate text-xs font-medium sm:text-sm">
+                          {currentMusic?.title || 'Select Music'}
+                        </span>
+                        <ChevronDownIcon
+                          className={`size-3 flex-shrink-0 transition-transform sm:size-4 ${showDropdown ? 'rotate-180' : ''}`}
+                        />
+                      </button>
 
-                  <button
-                    onClick={handleNextMusic}
-                    className="rounded-full p-1 text-white transition-colors hover:bg-black/20 sm:p-1.5"
-                    aria-label="Next music"
-                    title="Next music"
-                  >
-                    <ForwardIcon className="size-3.5 sm:size-4" />
-                  </button>
-                </div>
-              </>
-            )}
+                      {/* Dropdown Menu */}
+                      {showDropdown && (
+                        <div
+                          className="absolute inset-x-0 top-full z-[100] mt-2 rounded-lg border-2 border-amber-400 bg-white shadow-2xl"
+                          style={{ position: 'absolute' }}
+                        >
+                          <div className="max-h-56 overflow-y-auto rounded-lg sm:max-h-64">
+                            {musicList.map(music => (
+                              <button
+                                key={music.music_id}
+                                onClick={() =>
+                                  handleMusicSelect(music.music_id)
+                                }
+                                className={`w-full px-3 py-2 text-left text-xs transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-amber-50 sm:px-4 sm:py-2.5 sm:text-sm ${
+                                  currentMusic?.music_id === music.music_id
+                                    ? 'bg-amber-100 font-semibold text-amber-700'
+                                    : 'text-gray-700'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="truncate">
+                                    {music.title}
+                                  </span>
+                                  {currentMusic?.music_id ===
+                                    music.music_id && (
+                                    <span className="ml-1 text-amber-600 sm:ml-2">
+                                      ♪
+                                    </span>
+                                  )}
+                                </div>
+                                {music.description && (
+                                  <p className="mt-0.5 truncate text-xs text-gray-500">
+                                    {music.description}
+                                  </p>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={handleNextMusic}
+                      className="rounded-full p-1 text-white transition-colors hover:bg-black/20 sm:p-1.5"
+                      aria-label="Next music"
+                      title="Next music"
+                    >
+                      <ForwardIcon className="size-3.5 sm:size-4" />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
