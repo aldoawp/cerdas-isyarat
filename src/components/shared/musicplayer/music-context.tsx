@@ -58,8 +58,10 @@ const getAudioInstance = (musicUrl?: string): HTMLAudioElement | undefined => {
     return audio;
   }
 
-  if (!globalThis.window.audioInstance_cerdasisyarat) {
-    const audio = new Audio(musicUrl || '/music/music1.mp3');
+  // PERUBAHAN: Hanya buat instance tanpa default URL
+  // URL akan di-set setelah data dari DB berhasil dimuat
+  if (!globalThis.window.audioInstance_cerdasisyarat && musicUrl) {
+    const audio = new Audio(musicUrl);
     audio.loop = true;
     audio.preload = 'auto';
     audio.volume = 0.3;
@@ -73,7 +75,7 @@ const getAudioInstance = (musicUrl?: string): HTMLAudioElement | undefined => {
         currentTime: 0,
         hasUserInteracted: false,
         currentMusicId: undefined,
-        musicUrl: musicUrl || '/music/music1.mp3',
+        musicUrl: musicUrl,
       };
     }
   }
@@ -125,6 +127,7 @@ interface MusicContextType {
   hasUserInteracted: boolean;
   isClient: boolean;
   isLoading: boolean;
+  error: string | undefined;
   musicList: BackgroundMusicWithAsset[];
   currentMusic: BackgroundMusicWithAsset | undefined;
   togglePlayPause: () => Promise<void>;
@@ -142,6 +145,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [isClient, setIsClient] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | undefined>(undefined);
   const [musicList, setMusicList] = useState<BackgroundMusicWithAsset[]>([]);
   const [currentMusic, setCurrentMusic] = useState<
     BackgroundMusicWithAsset | undefined
@@ -161,16 +165,35 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(false);
 
-  // Load music list dari Supabase
+  // Load music list dari Supabase - HANYA DARI DB
   useEffect(() => {
     const loadMusicFromSupabase = async () => {
       try {
         const allMusic = await getAllBackgroundMusic();
-        setMusicList(allMusic);
+
+        // PERUBAHAN: Validasi bahwa ada musik di database
+        if (!allMusic || allMusic.length === 0) {
+          setError('No music found in database. Please add music first.');
+          setIsLoading(false);
+          setIsClient(true);
+          return;
+        }
+
+        // Filter musik yang memiliki audio_url valid
+        const validMusic = allMusic.filter(m => m.audio_url);
+
+        if (validMusic.length === 0) {
+          setError('No valid music URLs found in database.');
+          setIsLoading(false);
+          setIsClient(true);
+          return;
+        }
+
+        setMusicList(validMusic);
 
         // Cari musik yang active atau ambil yang pertama
-        const activeMusic = allMusic.find(m => m.is_active) || allMusic[0];
-        const musicUrl = activeMusic?.audio_url || '/music/music1.mp3';
+        const activeMusic = validMusic.find(m => m.is_active) || validMusic[0];
+        const musicUrl = activeMusic.audio_url;
 
         setCurrentMusic(activeMusic);
         setIsClient(true);
@@ -191,22 +214,20 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
             audioInstance.currentTime = globalState.currentTime;
           }
 
-          updateGlobalState({ currentMusicId: activeMusic?.music_id });
+          updateGlobalState({
+            currentMusicId: activeMusic.music_id,
+            musicUrl: musicUrl,
+          });
         }
-      } catch (error) {
+
+        setError(undefined); // Clear any previous errors
+      } catch (error_) {
         // eslint-disable-next-line no-console
-        console.error('Failed to load music from Supabase:', error);
-        // Fallback ke music local
+        console.error('Failed to load music from database:', error_);
+        setError(
+          'Failed to load music from database. Please check your connection.'
+        );
         setIsClient(true);
-        const globalState = getGlobalState();
-        const audioInstance = getAudioInstance('/music/music1.mp3');
-        if (audioInstance) {
-          audioRef.current = audioInstance;
-          setIsPlaying(globalState.isPlaying);
-          setVolume(globalState.volume);
-          setIsMuted(globalState.isMuted);
-          setHasUserInteracted(globalState.hasUserInteracted);
-        }
       } finally {
         setIsLoading(false);
       }
@@ -240,6 +261,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
     const handleError = () => {
       setIsPlaying(false);
       updateGlobalState({ isPlaying: false });
+      setError('Failed to play music. The audio file may be unavailable.');
     };
 
     audio.addEventListener('play', handlePlay);
@@ -387,6 +409,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
     hasUserInteracted,
     isClient,
     isLoading,
+    error,
     musicList,
     currentMusic,
     togglePlayPause,

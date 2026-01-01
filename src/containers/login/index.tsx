@@ -28,6 +28,22 @@ export default function LoginPage() {
   const [isShaking, setIsShaking] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [checkingIntro, setCheckingIntro] = useState(true);
+
+  // Cek apakah user sudah pernah lihat intro
+  useEffect(() => {
+    if (globalThis.window !== undefined) {
+      const hasSeenIntro = localStorage.getItem('hasSeenIntro');
+
+      // Jika belum pernah lihat intro, redirect ke intro page
+      if (!hasSeenIntro) {
+        router.replace('/intro');
+        return;
+      }
+
+      setCheckingIntro(false);
+    }
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -75,6 +91,7 @@ export default function LoginPage() {
           });
         } catch (logError) {
           // Don't block login if event logging fails
+          // eslint-disable-next-line no-console
           console.error('Failed to log login event:', logError);
         }
 
@@ -82,7 +99,7 @@ export default function LoginPage() {
         localStorage.setItem(
           'loggedInUser',
           JSON.stringify({
-            fullName: userData.full_name || userData.username, // Use full_name if available, fallback to username
+            fullName: userData.full_name || userData.username,
             username: userData.username,
             email: userData.email,
             id: data.user.id,
@@ -104,7 +121,7 @@ export default function LoginPage() {
           module: 'login',
         });
       } catch (logError) {
-        // Don't block login flow if warning logging fails
+        // eslint-disable-next-line no-console
         console.error('Failed to log warning:', logError);
       }
 
@@ -122,8 +139,8 @@ export default function LoginPage() {
     }
   }, [isShaking]);
 
-  // Show loading screen while page is loading or checking authentication
-  if (isPageLoading || authLoading) {
+  // Show loading screen while checking intro or authenticating
+  if (checkingIntro || isPageLoading || authLoading) {
     return <LoadingScreen message="Halaman sedang dimuat..." />;
   }
 
@@ -131,11 +148,9 @@ export default function LoginPage() {
     <div className="page-container relative grid min-h-screen place-items-center overflow-hidden p-4 font-sans">
       <main className="z-10 w-full max-w-md">
         <div className="mb-12 text-center">
-          {/* Menggunakan utility class text-stroke yang baru dibuat */}
           <h1 className="text-5xl font-bold text-brand-yellow drop-shadow-lg text-stroke-md md:text-7xl">
             CerdasIsyarat
           </h1>
-          {/* Menggunakan utility class text-stroke yang lebih kecil */}
           <h2 className="mt-2 whitespace-nowrap text-xl font-bold text-subtitle-cream drop-shadow-lg text-stroke sm:text-2xl md:text-3xl lg:text-4xl">
             Belajar Bahasa Isyarat Asik
           </h2>
@@ -148,7 +163,6 @@ export default function LoginPage() {
             </span>
           </div>
 
-          {/* Menambahkan font-comic ke form agar semua teks di dalamnya menggunakan font comic */}
           <form className="mt-12 font-comic" onSubmit={handleSubmit} noValidate>
             <div className="space-y-4">
               {/* Input Username */}
@@ -162,10 +176,10 @@ export default function LoginPage() {
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   disabled={isLoading}
-                  // Menghilangkan style inline, properti diatur oleh class
                   className="h-12 w-full rounded-[20px] border-4 border-input-border bg-input-bg p-2 pl-12 text-sm font-bold text-brand-brown-stroke placeholder:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 md:h-14 md:text-base"
                 />
               </div>
+
               {/* Input Password */}
               <div className="relative flex items-center">
                 <div className="absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg bg-icon-teal-bg md:size-9">
@@ -177,7 +191,6 @@ export default function LoginPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   disabled={isLoading}
-                  // Menghilangkan style inline
                   className="h-12 w-full rounded-[20px] border-4 border-input-border bg-input-bg p-2 pl-12 text-sm font-bold text-brand-brown-stroke placeholder:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 md:h-14 md:text-base"
                 />
                 <button
@@ -195,14 +208,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* <Link
-              href="/lupa-password"
-              // Menghilangkan style inline
-              className="mt-2 block text-right text-sm font-bold text-amber-700 hover:underline"
-            >
-              Lupa password?
-            </Link> */}
-
             {error && (
               <p className="mt-3 text-center text-sm font-semibold text-red-600">
                 {error}
@@ -213,7 +218,6 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                // Mengganti 'shake' dengan 'animate-shake' dari config
                 className={`w-full rounded-[15px] border-4 border-brand-brown-stroke bg-amber-500 py-3 text-2xl font-bold text-white transition duration-300 hover:bg-yellow-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${isShaking ? 'animate-shake' : ''}`}
               >
                 {isLoading ? 'MEMPROSES...' : 'MASUK'}
